@@ -36,3 +36,12 @@ app/data/*.db
 htmlcov/
 coverage.xml
 reports/
+
+
+# backend
+backend/app/data/*.db
+backend/.env
+
+# frontend local env
+frontend/.env
+
