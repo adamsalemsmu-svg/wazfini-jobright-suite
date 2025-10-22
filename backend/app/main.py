@@ -189,18 +189,22 @@ class UAEJobFilters(BaseModel):
 # ------------------------------------------------------------------------------
 # FastAPI App & CORS
 # ------------------------------------------------------------------------------
+# Determine CORS origins from environment variables
+cors_origins_env = os.getenv("CORS_ORIGINS") or os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 
 app = FastAPI(title="Wazfini JobRight Suite API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
+        allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ------------------------------------------------------------------------------
+# 
+# ----------------------------------------------------------------------------
 # Auth Helpers
 # ------------------------------------------------------------------------------
 
