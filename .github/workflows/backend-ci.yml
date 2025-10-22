@@ -12,6 +12,7 @@ jobs:
       run:
         shell: bash
         working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +47,8 @@ jobs:
             sleep 1
           done
           curl -sf http://127.0.0.1:8000/openapi.json | python - <<'PY'
-import sys, json
-info=json.load(sys.stdin).get("info",{})
-assert "title" in info, "Missing OpenAPI title"
-print("OpenAPI OK:", info["title"])
-PY
+          import sys, json
+          info=json.load(sys.stdin).get("info",{})
+          assert "title" in info, "Missing OpenAPI title"
+          print("OpenAPI OK:", info["title"])
+          PY
