@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pytest_cache/
+.pytest_cache/
+.venv/
+venv/
+env/
+dist/
+build/
+.eggs/
+*.egg-info/
+
+# Node/React
+node_modules/
+dist/
+.vite/
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env files
+.env
+.env.*.local
+*.sqlite*
+app/data/*.db
+
+# Coverage / reports
+.coverage
+htmlcov/
+coverage.xml
+reports/

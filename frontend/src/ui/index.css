@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+:root { color-scheme: light dark; }
+
+/* Wider container + comfy padding */
+.container {
+  @apply max-w-7xl md:max-w-[88rem] mx-auto px-3 sm:px-4 md:px-6;
+}

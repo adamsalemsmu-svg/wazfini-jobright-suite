@@ -1,0 +1,12 @@
+# app/api/routes_assistant.py
+from fastapi import APIRouter
+from ..services.ai_assistant import penguin_reply
+
+router = APIRouter(prefix="/assistant", tags=["assistant"])
+
+@router.post("/chat")
+async def penguin_chat(payload: dict):
+    msg = payload.get("message","")
+    ctx = {"profile_id": payload.get("profile_id"), "job_id": payload.get("job_id")}
+    reply = await penguin_reply(msg, ctx)
+    return {"reply": reply}

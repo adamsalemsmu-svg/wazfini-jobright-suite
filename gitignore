@@ -1,0 +1,18 @@
+# Environment files
+.env
+*.env
+
+# Python virtual environments
+.venv/
+venv/
+
+# Node modules
+frontend/node_modules/
+
+# Compiled files
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db
