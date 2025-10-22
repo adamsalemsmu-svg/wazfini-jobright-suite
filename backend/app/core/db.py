@@ -1,27 +1,26 @@
 # backend/app/core/db.py
 import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL not set")
 
-# Use your env var, or default to a local sqlite file under app/data/
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app/data/wazfini.db")
+# Ensure sslmode=require is present for Render Postgres
+if DATABASE_URL.startswith("postgresql") and "sslmode=" not in DATABASE_URL:
+    sep = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
 
-# SQLite needs this flag; for Postgres/MySQL it’s ignored
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(
+    DATABASE_URL,
+    future=True,
+    pool_pre_ping=True,
+)
 
-# Sync SQLAlchemy engine (matches your main.py usage)
-engine = create_engine(DATABASE_URL, echo=False, future=True, connect_args=connect_args)
-
-# Classic sync Session
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Declarative base for your ORM models
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# Dependency used by FastAPI routes to get a DB session
 def get_db():
     db = SessionLocal()
     try:
