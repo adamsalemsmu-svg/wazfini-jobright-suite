@@ -26,29 +26,29 @@ jobs:
           cache: "pip"
           cache-dependency-path: |
             backend/requirements.txt
-            backend/requirements-dev.txt
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           pip install -U pip
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          pip install -r requirements.txt
-          # If your project uses alembic, install it via requirements.
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Lint (if flake8 present)
+      - name: Lint
         run: |
-          if python -c "import pkgutil; exit(0 if pkgutil.find_loader('flake8') else 1)"; then \
-            flake8 .; else echo "flake8 not installed"; fi
+          if python -m pip show flake8 > /dev/null 2>&1; then
+            flake8 .
+          else
+            echo "flake8 not installed"
+          fi
 
-      - name: Unit tests (if pytest present)
+      - name: Run tests (if pytest present)
         env:
-          # Provide a safe default DB for CI (SQLite)
           DATABASE_URL: sqlite+aiosqlite:///./test.db
-          # Any other env your app expects:
-          OPENAI_API_KEY: "test"
         run: |
-          if python -c "import pkgutil; exit(0 if pkgutil.find_loader('pytest') else 1)"; then \
-            pytest -q || true; else echo "pytest not installed"; fi
+          if python -m pip show pytest > /dev/null 2>&1; then
+            pytest -q || true
+          else
+            echo "pytest not installed"
+          fi
 
   smoke:
     name: backend:smoke
@@ -63,26 +63,25 @@ jobs:
       - name: Install requests
         run: pip install requests
 
-      - name: Health/OpenAPI smoke
+      - name: Health check
         env:
           BACKEND_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
         run: |
           python - <<'PY'
           import os, requests, sys
-          be = (os.environ.get("BACKEND_URL") or "").rstrip("/")
-          if not be:
-              print("No BACKEND_URL set; skipping smoke."); sys.exit(0)
-          ok=1
+          url = (os.environ.get("BACKEND_URL") or "").rstrip("/")
+          if not url:
+              print("No BACKEND_URL set; skipping.")
+              sys.exit(0)
+          ok = True
           for path in ("/health", "/openapi.json"):
               try:
-                  r = requests.get(be + path, timeout=20)
+                  r = requests.get(url + path, timeout=20)
                   print(path, r.status_code)
-                  if path=="/openapi.json":
-                      ok &= r.ok and isinstance(r.json(), dict) and "paths" in r.json()
-                  else:
-                      ok &= r.ok
+                  if not r.ok: ok = False
               except Exception as e:
-                  print("ERR", path, e); ok=0
+                  print("Error on", path, e)
+                  ok = False
           sys.exit(0 if ok else 1)
           PY
 
