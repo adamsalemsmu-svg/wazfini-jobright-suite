@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-# allow the workflow to comment on PRs
-permissions:
-  contents: read
-  pull-requests: write
-
 jobs:
   lint-test-smoke:
     runs-on: ubuntu-latest
@@ -33,11 +28,11 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff httpx uvicorn requests
+          pip install pytest ruff httpx uvicorn
 
       - name: Lint (ruff)
         run: ruff check .
@@ -52,105 +47,8 @@ jobs:
             curl -sf http://127.0.0.1:8000/openapi.json && break
             sleep 1
           done
-          curl -sf http://127.0.0.1:8000/openapi.json | python - <<'PY'
-          import sys, json
-          info=json.load(sys.stdin).get("info",{})
-          assert "title" in info, "Missing OpenAPI title"
-          print(info["title"])
-          PY
-
-      # -------- Generate a ReleaseReport.md against prod env --------
-      - name: Generate Release Report (remote)
-        env:
-          BACKEND_URL: https://wazifni-backend.onrender.com
-          FRONTEND_URL: https://wazifni-frontend.vercel.app
-          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
-          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-        run: |
-          python - <<'PY'
-          import os, json, requests
-
-          backend  = os.getenv("BACKEND_URL","").rstrip("/")
-          frontend = os.getenv("FRONTEND_URL","").rstrip("/")
-          email    = os.getenv("REPORT_EMAIL","")
-          pwd      = os.getenv("REPORT_PASSWORD","")
-          outpath  = os.path.join(os.getenv("GITHUB_WORKSPACE","."), "ReleaseReport.md")
-
-          def req(m,u,**k):
-            try:
-              r = requests.request(m,u,timeout=20,**k); return r,None
-            except Exception as e:
-              return None,str(e)
-
-          res = {}
-          r,_ = req("GET", f"{backend}/openapi.json")
-          res["openapi_status"] = r.status_code if r else None
-          res["openapi_ok"]     = bool(r and r.ok and "paths" in r.json())
-
-          h,_ = req("GET", f"{backend}/health")
-          res["health_status"] = h.status_code if h else None
-          res["health_ok"]     = bool(h and h.ok)
-
-          token=None; jobs_status=None; jobs_count=None
-          if email and pwd:
-            req("POST", f"{backend}/auth/register", json={"email":email,"password":pwd,"name":"CI Bot"})
-            lg,_ = req("POST", f"{backend}/auth/login", data={"username":email,"password":pwd})
-            if lg and lg.ok:
-              try: token = lg.json().get("access_token")
-              except Exception: token=None
-          if token:
-            j,_ = req("GET", f"{backend}/jobs", headers={"Authorization":f"Bearer {token}"})
-            jobs_status = j.status_code if j else None
-            try: jobs_count = len(j.json()) if j and j.ok else None
-            except Exception: jobs_count=None
-
-          pre_ok=simple_ok=None; acao_pre=acao_simple=None
-          if frontend:
-            pre,_ = req("OPTIONS", f"{backend}/jobs",
-                        headers={"Origin":frontend,"Access-Control-Request-Method":"GET"})
-            if pre:
-              acao_pre = pre.headers.get("Access-Control-Allow-Origin")
-              pre_ok   = (acao_pre in (frontend, "*"))
-            sim,_ = req("GET", f"{backend}/jobs", headers={"Origin":frontend})
-            if sim:
-              acao_simple = sim.headers.get("Access-Control-Allow-Origin")
-              simple_ok   = (acao_simple in (frontend, "*"))
-
-          go = all([
-            res["openapi_ok"],
-            res["health_ok"] if res["health_status"] is not None else True,
-            (jobs_status==200) if jobs_status is not None else True,
-            (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
-          ])
-
-          report = f"""# Wazifni Release Report — CI Autogen
-
-**Backend:** {backend}  
-**Frontend:** {frontend or '(not set)'}  
-
-## Verification Matrix
-- OpenAPI: **{res['openapi_status']}** → OK: **{bool(res['openapi_ok'])}**
-- Health: **{res['health_status']}** → OK: **{bool(res['health_ok'])}**
-- Jobs: **{jobs_status}** (count: **{jobs_count}**)
-- CORS preflight OK: **{pre_ok}** (ACAO: {acao_pre})
-- CORS simple OK: **{simple_ok}** (ACAO: {acao_simple})
-
-## Result
-{"✅ GO — all checks passed." if go else "❌ NO-GO — see failures above."}
-"""
-          with open(outpath,"w",encoding="utf-8") as f:
-            f.write(report)
-          print(report)
-          PY
-
-      - name: Upload Release Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ReleaseReport
-          path: ReleaseReport.md
-          if-no-files-found: ignore
+          curl -sf http://127.0.0.1:8000/openapi.json > /tmp/openapi.json
+          python -c "import json,sys; d=json.load(open('/tmp/openapi.json')); i=d.get('info',{}); assert 'title' in i, 'Missing OpenAPI title'; print('OpenAPI OK:', i['title'])"
 
   build-and-deploy:
     needs: lint-test-smoke
@@ -161,8 +59,7 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -176,7 +73,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }},${{ env.IMAGE_NAME }}:latest
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:latest
 
       - name: Deploy via SSH (Docker)
         uses: appleboy/ssh-action@v1.2.0
@@ -196,19 +95,3 @@ jobs:
               --env-file /opt/dataapps/.env \
               -v /opt/dataapps/data:/app/backend/app/data \
               ${{ env.IMAGE_NAME }}:latest
-
-  comment-release-report:
-    needs: lint-test-smoke
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download ReleaseReport artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ReleaseReport
-          path: .
-
-      - name: Post Release Report as PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: ReleaseReport.md
