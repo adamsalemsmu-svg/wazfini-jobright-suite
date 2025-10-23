@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     name: backend:build-test
@@ -30,7 +34,6 @@ jobs:
         run: |
           pip install -U pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Optional dev tools:
           pip install "flake8>=6" "pytest>=7" || true
 
       - name: Lint (if flake8 installed)
@@ -80,11 +83,11 @@ jobs:
     name: backend:deploy
     needs: [build-test, smoke]
     runs-on: ubuntu-latest
-    # Only branch check at job level
+    # Only branch check at job level (no secrets here)
     if: ${{ github.ref == 'refs/heads/main' }}
     steps:
       - name: Check required secrets
-        id: check
+        id: secretcheck
         run: |
           missing=0
           [ -z "${{ secrets.RENDER_API_KEY }}" ] && echo "RENDER_API_KEY missing" && missing=1
@@ -92,7 +95,7 @@ jobs:
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
 
       - name: Trigger Render deploy
-        if: ${{ steps.check.outputs.missing == '0' }}
+        if: ${{ steps.secretcheck.outputs.missing == '0' }}
         run: |
           curl -fsS -X POST \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
