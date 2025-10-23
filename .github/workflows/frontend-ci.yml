@@ -158,17 +158,16 @@ jobs:
         with:
           name: FrontendReport
           path: FrontendReport.md
-
+          
   deploy-vercel:
     needs: [build-test]
     runs-on: ubuntu-latest
-    # Only branch/event logic at job level (no secrets here)
     if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
-    defaults:
-      run:
-        shell: bash
-        working-directory: frontend
+
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Check required secrets
         id: secretcheck
         run: |
@@ -178,11 +177,6 @@ jobs:
           [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ] && echo "VERCEL_PROJECT_ID missing" && missing=1
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout
-        if: ${{ steps.secretcheck.outputs.missing == '0' }}
-        uses: actions/checkout@v4
-
-      # Preview deploy for PRs / non-main pushes
       - name: Deploy to Vercel (Preview)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
         id: vercel_preview
@@ -194,7 +188,6 @@ jobs:
           working-directory: frontend
           scope: ${{ secrets.VERCEL_ORG_ID }}
 
-      # Production deploy on main
       - name: Deploy to Vercel (Prod)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
         id: vercel_prod
