@@ -162,7 +162,7 @@ jobs:
   deploy-vercel:
     needs: [build-test]
     runs-on: ubuntu-latest
-    # Job-level condition: ONLY branch/event logic here (no secrets)
+    # Only branch/event logic at job level (no secrets here)
     if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
     defaults:
       run:
@@ -182,9 +182,10 @@ jobs:
         if: ${{ steps.secretcheck.outputs.missing == '0' }}
         uses: actions/checkout@v4
 
-      - name: Deploy to Vercel (Preview on PR, Prod on main)
-        if: ${{ steps.secretcheck.outputs.missing == '0' }}
-        id: vercel
+      # Preview deploy for PRs / non-main pushes
+      - name: Deploy to Vercel (Preview)
+        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
+        id: vercel_preview
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -192,8 +193,30 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: frontend
           scope: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
 
-      - name: Echo deployed URL
-        if: ${{ steps.secretcheck.outputs.missing == '0' }}
-        run: echo "Deployed URL: ${{ steps.vercel.outputs.preview-url }}"
+      # Production deploy on main
+      - name: Deploy to Vercel (Prod)
+        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
+        id: vercel_prod
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: frontend
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-args: "--prod"
+
+      - name: Echo deployed URL (preview)
+        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
+        env:
+          URL: ${{ steps.vercel_preview.outputs['preview-url'] }}
+        run: |
+          echo "Preview URL: $URL"
+
+      - name: Echo deployed URL (prod)
+        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
+        env:
+          URL: ${{ steps.vercel_prod.outputs['preview-url'] }}
+        run: |
+          echo "Production URL: $URL"
