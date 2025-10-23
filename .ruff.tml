@@ -1,0 +1,9 @@
+line-length = 120
+extend-exclude = [".venv", "venv", ".env", ".tox", "build", "dist"]
+
+[lint]
+# ignore the same rules previously ignored in Flake8
+ignore = ["E501", "E302", "E305", "E402", "E401", "F401"]
+
+# Uncomment the following line to restrict checks to Flake8-equivalent rules
+# select = ["E", "F"]
