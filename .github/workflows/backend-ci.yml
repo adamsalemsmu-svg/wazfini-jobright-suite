@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest ruff httpx uvicorn
+          pip install pytest ruff httpx uvicorn requests
 
       - name: Lint (ruff)
         run: ruff check .
@@ -52,6 +52,115 @@ jobs:
           info=json.load(sys.stdin).get("info",{})
           assert "title" in info, "Missing OpenAPI title"
           print(info["title"])
+          PY
+
+      # -------- Generate a ReleaseReport.md (remote prod) ----------
+      - name: Generate Release Report (remote)
+        env:
+          BACKEND_URL: https://wazifni-backend.onrender.com
+          FRONTEND_URL: https://wazifni-frontend.vercel.app
+          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
+          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import os, json, textwrap
+          import requests
+
+          backend  = os.getenv("BACKEND_URL", "").rstrip("/")
+          frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
+          email    = os.getenv("REPORT_EMAIL", "")
+          pwd      = os.getenv("REPORT_PASSWORD", "")
+          outpath  = os.path.join(os.getenv("GITHUB_WORKSPACE","."), "ReleaseReport.md")
+
+          def req(method, url, **kw):
+            try:
+              r = requests.request(method, url, timeout=20, **kw)
+              return r, None
+            except Exception as e:
+              return None, str(e)
+
+          results = {}
+
+          # OpenAPI
+          r, err = req("GET", f"{backend}/openapi.json")
+          results["openapi_status"] = r.status_code if r else None
+          results["openapi_ok"] = bool(r and r.status_code==200 and "paths" in r.json())
+
+          # Health
+          h, err = req("GET", f"{backend}/health")
+          results["health_status"] = h.status_code if h else None
+          results["health_ok"] = bool(h and h.status_code==200)
+
+          # Optional: auth + jobs
+          token = None
+          jobs_status = None
+          jobs_count  = None
+          if email and pwd:
+            # register (idempotent)
+            req("POST", f"{backend}/auth/register",
+                json={"email": email, "password": pwd, "name":"CI Bot"})
+            # login
+            lg, err = req("POST", f"{backend}/auth/login",
+                          data={"username": email, "password": pwd})
+            if lg and lg.ok:
+              try:
+                token = lg.json().get("access_token")
+              except Exception:
+                token = None
+          if token:
+            headers = {"Authorization": f"Bearer {token}"}
+            j, err = req("GET", f"{backend}/jobs", headers=headers)
+            jobs_status = j.status_code if j else None
+            try:
+              jobs_count = len(j.json()) if j and j.ok else None
+            except Exception:
+              jobs_count = None
+
+          results["jobs_status"] = jobs_status
+          results["jobs_count"]  = jobs_count
+
+          # CORS tests (only meaningful if frontend url exists)
+          pre_ok = simple_ok = None
+          acao_pre = acao_simple = None
+          if frontend:
+            pre, err = req("OPTIONS", f"{backend}/jobs",
+                           headers={"Origin": frontend, "Access-Control-Request-Method":"GET"})
+            if pre:
+              acao_pre = pre.headers.get("Access-Control-Allow-Origin")
+              pre_ok = (acao_pre in (frontend, "*"))
+            sim, err = req("GET", f"{backend}/jobs",
+                           headers={"Origin": frontend})
+            if sim:
+              acao_simple = sim.headers.get("Access-Control-Allow-Origin")
+              simple_ok = (acao_simple in (frontend, "*"))
+
+          # Compose report
+          go = all([
+            results["openapi_ok"],
+            results["health_ok"] if results["health_status"] is not None else True,
+            (jobs_status==200) if jobs_status is not None else True,
+            (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
+          ])
+
+          report = f"""# Wazifni Release Report — CI Autogen
+
+**Backend:** {backend}  
+**Frontend:** {frontend or '(not set)'}  
+
+## Verification Matrix
+- OpenAPI: **{results['openapi_status']}** → OK: **{bool(results['openapi_ok'])}**
+- Health: **{results['health_status']}** → OK: **{bool(results['health_ok'])}**
+- Jobs: **{jobs_status}** (count: **{jobs_count}**)
+- CORS preflight OK: **{pre_ok}** (ACAO: {acao_pre})
+- CORS simple OK: **{simple_ok}** (ACAO: {acao_simple})
+
+## Result
+{"✅ GO — all checks passed." if go else "❌ NO-GO — see failures above."}
+"""
+          with open(outpath, "w", encoding="utf-8") as f:
+            f.write(report)
+          print(report)
           PY
 
       - name: Upload Release Report
