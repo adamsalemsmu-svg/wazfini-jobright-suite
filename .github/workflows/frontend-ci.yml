@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -41,10 +45,12 @@ jobs:
           if npm run | grep -qE "^\s*test\s"; then npm test -- --ci || npm test || true; else echo "no tests"; fi
 
       - name: Build
-        env:
-          # Fallback to localhost if secret is empty/unset
-          VITE_API_BASE: ${{ secrets.FRONTEND_VITE_API_BASE || 'http://127.0.0.1:8000' }}
-        run: npm run build
+        run: |
+          : "${VITE_API_BASE:=${{ secrets.FRONTEND_VITE_API_BASE }}}"
+          if [ -z "$VITE_API_BASE" ]; then VITE_API_BASE="http://127.0.0.1:8000"; fi
+          export VITE_API_BASE
+          echo "Using VITE_API_BASE=$VITE_API_BASE"
+          npm run build
 
   report:
     needs: build-test
@@ -76,8 +82,10 @@ jobs:
           pwd   = os.environ.get("REPORT_PASSWORD","")
 
           def call(m,u,**k):
-              try: return requests.request(m,u,timeout=20,**k)
-              except Exception: return None
+              try:
+                  return requests.request(m,u,timeout=20,**k)
+              except Exception:
+                  return None
 
           openapi = call("GET", f"{be}/openapi.json") if be else None
           health  = call("GET", f"{be}/health") if be else None
@@ -87,16 +95,20 @@ jobs:
               call("POST", f"{be}/auth/register", json={"email":email,"password":pwd,"name":"CI Frontend"})
               lg = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
               if lg and lg.ok:
-                  try: token = lg.json().get("access_token")
-                  except Exception: token=None
+                  try:
+                      token = lg.json().get("access_token")
+                  except Exception:
+                      token = None
 
           jobs_status=None; jobs_count=None
           if token:
               j = call("GET", f"{be}/jobs", headers={"Authorization":f"Bearer {token}"})
               if j:
                   jobs_status = j.status_code
-                  try: jobs_count = len(j.json())
-                  except Exception: pass
+                  try:
+                      jobs_count = len(j.json())
+                  except Exception:
+                      pass
 
           pre_ok=simple_ok=None; acao_pre=acao_simple=None
           if fe and be:
@@ -111,8 +123,10 @@ jobs:
                   simple_ok = (acao_simple in (fe,"*"))
 
           def ok_openapi(r):
-              try: return bool(r and r.ok and "paths" in r.json())
-              except Exception: return False
+              try:
+                  return bool(r and r.ok and "paths" in r.json())
+              except Exception:
+                  return False
 
           go = all([
               ok_openapi(openapi),
@@ -148,16 +162,15 @@ jobs:
   deploy-vercel:
     needs: [build-test]
     runs-on: ubuntu-latest
-    # Only branch/event logic at job level (no secrets here)
+    # Job-level condition: ONLY branch/event logic here (no secrets)
     if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
     defaults:
       run:
         shell: bash
         working-directory: frontend
-
     steps:
       - name: Check required secrets
-        id: check
+        id: secretcheck
         run: |
           missing=0
           [ -z "${{ secrets.VERCEL_TOKEN }}" ] && echo "VERCEL_TOKEN missing" && missing=1
@@ -166,11 +179,11 @@ jobs:
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
-        if: ${{ steps.check.outputs.missing == '0' }}
+        if: ${{ steps.secretcheck.outputs.missing == '0' }}
         uses: actions/checkout@v4
 
       - name: Deploy to Vercel (Preview on PR, Prod on main)
-        if: ${{ steps.check.outputs.missing == '0' }}
+        if: ${{ steps.secretcheck.outputs.missing == '0' }}
         id: vercel
         uses: amondnet/vercel-action@v25
         with:
@@ -182,5 +195,5 @@ jobs:
           vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
 
       - name: Echo deployed URL
-        if: ${{ steps.check.outputs.missing == '0' }}
+        if: ${{ steps.secretcheck.outputs.missing == '0' }}
         run: echo "Deployed URL: ${{ steps.vercel.outputs.preview-url }}"
