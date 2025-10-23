@@ -22,7 +22,6 @@ jobs:
       run:
         shell: bash
         working-directory: ${{ env.FRONTEND_DIR }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -37,19 +36,18 @@ jobs:
 
       - name: Lint (if script exists)
         run: |
-          if npm run | grep -q "^  lint"; then npm run lint; else echo "no lint script"; fi
+          if npm run | grep -qE "^\s*lint\s"; then npm run lint; else echo "no lint script"; fi
 
       - name: Typecheck (if script exists)
         run: |
-          if npm run | grep -q "^  typecheck"; then npm run typecheck; else echo "no typecheck script"; fi
+          if npm run | grep -qE "^\s*typecheck\s"; then npm run typecheck; else echo "no typecheck script"; fi
 
       - name: Unit tests (if present)
         run: |
-          if npm run | grep -q "^  test"; then npm test -- --ci --reporter=min || npm test || true; else echo "no tests"; fi
+          if npm run | grep -qE "^\s*test\s"; then npm test -- --ci || npm test || true; else echo "no tests"; fi
 
       - name: Build
         env:
-          # Ensure the app points at the live backend during build
           VITE_API_BASE: ${{ env.BACKEND_URL }}
         run: npm run build
 
@@ -65,6 +63,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requests
+        run: python -m pip install --upgrade pip && pip install requests
+
       - name: Generate Frontend Report
         env:
           BACKEND_URL: ${{ env.BACKEND_URL }}
@@ -73,7 +79,7 @@ jobs:
           REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
         run: |
           python - <<'PY'
-          import os, requests, textwrap, json
+          import os, requests
 
           be = os.getenv("BACKEND_URL","").rstrip("/")
           fe = os.getenv("FRONTEND_URL","").rstrip("/")
@@ -81,53 +87,53 @@ jobs:
           pwd   = os.getenv("REPORT_PASSWORD","")
 
           def call(m,u,**k):
-            try:
-              r = requests.request(m,u,timeout=20,**k); return r,None
-            except Exception as e:
-              return None,str(e)
+              try:
+                  r = requests.request(m,u,timeout=20,**k); return r
+              except Exception:
+                  return None
 
           # Backend checks
-          openapi,_ = call("GET", f"{be}/openapi.json")
+          openapi = call("GET", f"{be}/openapi.json")
           openapi_ok = bool(openapi and openapi.ok and "paths" in openapi.json())
-          health,_ = call("GET", f"{be}/health")
+          health = call("GET", f"{be}/health")
           health_ok = bool(health and health.ok)
 
           token=None; jobs_status=None; jobs_count=None
           if email and pwd:
-            call("POST", f"{be}/auth/register", json={"email":email,"password":pwd,"name":"CI Frontend"})
-            login,_ = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
-            if login and login.ok:
-              token = login.json().get("access_token")
-          if token:
-            j,_ = call("GET", f"{be}/jobs", headers={"Authorization":f"Bearer {token}"})
-            jobs_status = j.status_code if j else None
-            try: jobs_count = len(j.json()) if j and j.ok else None
-            except: jobs_count=None
+              call("POST", f"{be}/auth/register", json={"email":email,"password":pwd,"name":"CI Frontend"})
+              login = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
+              if login and login.ok:
+                  token = login.json().get("access_token")
 
-          # CORS (preflight + simple)
+          if token:
+              j = call("GET", f"{be}/jobs", headers={"Authorization":f"Bearer {token}"})
+              jobs_status = j.status_code if j else None
+              try: jobs_count = len(j.json()) if j and j.ok else None
+              except: jobs_count=None
+
+          # CORS
           pre_ok=simple_ok=None; acao_pre=acao_simple=None
           if fe:
-            pre,_ = call("OPTIONS", f"{be}/jobs",
-              headers={"Origin":fe,"Access-Control-Request-Method":"GET"})
-            if pre:
-              acao_pre = pre.headers.get("Access-Control-Allow-Origin")
-              pre_ok = (acao_pre in (fe,"*"))
-            sim,_ = call("GET", f"{be}/jobs", headers={"Origin":fe})
-            if sim:
-              acao_simple = sim.headers.get("Access-Control-Allow-Origin")
-              simple_ok = (acao_simple in (fe,"*"))
+              pre = call("OPTIONS", f"{be}/jobs", headers={"Origin":fe,"Access-Control-Request-Method":"GET"})
+              if pre:
+                  acao_pre = pre.headers.get("Access-Control-Allow-Origin")
+                  pre_ok = (acao_pre in (fe,"*"))
+              sim = call("GET", f"{be}/jobs", headers={"Origin":fe})
+              if sim:
+                  acao_simple = sim.headers.get("Access-Control-Allow-Origin")
+                  simple_ok = (acao_simple in (fe,"*"))
 
           go = all([
-            openapi_ok,
-            health_ok if health is not None else True,
-            (jobs_status==200) if jobs_status is not None else True,
-            (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
+              openapi_ok,
+              health_ok if health is not None else True,
+              (jobs_status==200) if jobs_status is not None else True,
+              (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
           ])
 
           report = f"""# Frontend Release Report — CI Autogen
 
-**Backend:** {be}  
-**Expected Frontend URL:** {fe or "(not set)"}  
+**Backend:** {be}
+**Expected Frontend URL:** {fe or "(not set)"}
 
 ## Verification Matrix
 - Backend OpenAPI: **{getattr(openapi,'status_code',None)}** → OK: **{openapi_ok}**
@@ -140,7 +146,7 @@ jobs:
 {"✅ GO — all checks passed." if go else "❌ NO-GO — see failures above."}
 """
           with open("FrontendReport.md","w",encoding="utf-8") as f:
-            f.write(report)
+              f.write(report)
           print(report)
           PY
 
@@ -164,10 +170,8 @@ jobs:
       run:
         shell: bash
         working-directory: ${{ env.FRONTEND_DIR }}
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Deploy to Vercel (Preview on PR, Prod on main)
         id: vercel
         uses: amondnet/vercel-action@v25
@@ -179,13 +183,11 @@ jobs:
           working-directory: ${{ env.FRONTEND_DIR }}
           scope: ${{ secrets.VERCEL_ORG_ID }}
           vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
-
       - name: Echo deployed URL
-        run: |
-          echo "Deployed URL: ${{ steps.vercel.outputs.preview-url }}"
+        run: echo "Deployed URL: ${{ steps.vercel.outputs.preview-url }}"
 
   comment-report:
-    needs: [report]
+    needs: report
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -194,7 +196,6 @@ jobs:
         with:
           name: FrontendReport
           path: .
-
       - name: Post Frontend Report as PR comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
