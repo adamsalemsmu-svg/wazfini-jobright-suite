@@ -6,30 +6,24 @@ on:
   pull_request:
     branches: [ "main" ]
 
-permissions:
-  contents: read
-  pull-requests: write
-
-env:
-  FRONTEND_DIR: frontend
-  BACKEND_URL: https://wazifni-backend.onrender.com
-  FRONTEND_EXPECTED: https://wazifni-frontend.vercel.app
-
 jobs:
   build-test:
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
-        working-directory: ${{ env.FRONTEND_DIR }}
-    steps:
-      - uses: actions/checkout@v4
+        working-directory: frontend
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install
         run: npm ci
@@ -48,155 +42,140 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_BASE: ${{ env.BACKEND_URL }}
+          # fallback to localhost if secret is empty/unset
+          VITE_API_BASE: ${{ secrets.FRONTEND_VITE_API_BASE && secrets.FRONTEND_VITE_API_BASE || 'http://127.0.0.1:8000' }}
         run: npm run build
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: ${{ env.FRONTEND_DIR }}/dist
 
   report:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install requests
-        run: python -m pip install --upgrade pip && pip install requests
+      - name: Install report deps
+        run: pip install requests
 
       - name: Generate Frontend Report
         env:
-          BACKEND_URL: ${{ env.BACKEND_URL }}
-          FRONTEND_URL: ${{ env.FRONTEND_EXPECTED }}
+          BACKEND_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_PUBLIC_URL }}
           REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
           REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
         run: |
           python - <<'PY'
           import os, requests
-
-          be = os.getenv("BACKEND_URL","").rstrip("/")
-          fe = os.getenv("FRONTEND_URL","").rstrip("/")
-          email = os.getenv("REPORT_EMAIL","")
-          pwd   = os.getenv("REPORT_PASSWORD","")
+          be = os.environ.get("BACKEND_URL","").rstrip("/")
+          fe = os.environ.get("FRONTEND_URL","").rstrip("/")
+          email = os.environ.get("REPORT_EMAIL","")
+          pwd   = os.environ.get("REPORT_PASSWORD","")
 
           def call(m,u,**k):
               try:
-                  r = requests.request(m,u,timeout=20,**k); return r
+                  return requests.request(m,u,timeout=20,**k)
               except Exception:
                   return None
 
-          # Backend checks
-          openapi = call("GET", f"{be}/openapi.json")
-          openapi_ok = bool(openapi and openapi.ok and "paths" in openapi.json())
-          health = call("GET", f"{be}/health")
-          health_ok = bool(health and health.ok)
+          openapi = call("GET", f"{be}/openapi.json") if be else None
+          health  = call("GET", f"{be}/health") if be else None
 
-          token=None; jobs_status=None; jobs_count=None
-          if email and pwd:
+          token=None
+          if email and pwd and be:
               call("POST", f"{be}/auth/register", json={"email":email,"password":pwd,"name":"CI Frontend"})
-              login = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
-              if login and login.ok:
-                  token = login.json().get("access_token")
+              lg = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
+              if lg and lg.ok:
+                  try:
+                      token = lg.json().get("access_token")
+                  except Exception:
+                      token = None
 
+          jobs_status=None; jobs_count=None
           if token:
               j = call("GET", f"{be}/jobs", headers={"Authorization":f"Bearer {token}"})
-              jobs_status = j.status_code if j else None
-              try: jobs_count = len(j.json()) if j and j.ok else None
-              except: jobs_count=None
+              if j:
+                  jobs_status = j.status_code
+                  try:
+                      jobs_count = len(j.json())
+                  except Exception:
+                      pass
 
-          # CORS
           pre_ok=simple_ok=None; acao_pre=acao_simple=None
-          if fe:
-              pre = call("OPTIONS", f"{be}/jobs", headers={"Origin":fe,"Access-Control-Request-Method":"GET"})
-              if pre:
+          if fe and be:
+              pre = call("OPTIONS", f"{be}/jobs",
+                         headers={"Origin":fe,"Access-Control-Request-Method":"GET"})
+              if pre is not None:
                   acao_pre = pre.headers.get("Access-Control-Allow-Origin")
                   pre_ok = (acao_pre in (fe,"*"))
               sim = call("GET", f"{be}/jobs", headers={"Origin":fe})
-              if sim:
+              if sim is not None:
                   acao_simple = sim.headers.get("Access-Control-Allow-Origin")
                   simple_ok = (acao_simple in (fe,"*"))
 
+          def ok_openapi(r):
+              try:
+                  return bool(r and r.ok and "paths" in r.json())
+              except Exception:
+                  return False
+
           go = all([
-              openapi_ok,
-              health_ok if health is not None else True,
+              ok_openapi(openapi),
+              bool(health and health.ok) if health else True,
               (jobs_status==200) if jobs_status is not None else True,
               (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
           ])
 
-          report = f"""# Frontend Release Report — CI Autogen
+          report = f"""# Frontend Release Report
 
-**Backend:** {be}
-**Expected Frontend URL:** {fe or "(not set)"}
+          Backend: {be or '(not set)'}
+          Frontend: {fe or '(not set)'}
 
-## Verification Matrix
-- Backend OpenAPI: **{getattr(openapi,'status_code',None)}** → OK: **{openapi_ok}**
-- Backend Health: **{getattr(health,'status_code',None)}** → OK: **{health_ok}**
-- Jobs: **{jobs_status}** (count: **{jobs_count}**)
-- CORS preflight OK: **{pre_ok}** (ACAO: {acao_pre})
-- CORS simple OK: **{simple_ok}** (ACAO: {acao_simple})
+          OpenAPI: {getattr(openapi,'status_code',None)} ok? {ok_openapi(openapi)}
+          Health:  {getattr(health,'status_code',None)} ok? {bool(health and health.ok)}
+          Jobs:    {jobs_status} (count: {jobs_count})
+          CORS Preflight ok? {pre_ok} ({acao_pre})
+          CORS Simple ok?   {simple_ok} ({acao_simple})
 
-## Result
-{"✅ GO — all checks passed." if go else "❌ NO-GO — see failures above."}
-"""
+          Result: {"GO ✅" if go else "NO-GO ❌"}
+          """
+          print(report)
           with open("FrontendReport.md","w",encoding="utf-8") as f:
               f.write(report)
-          print(report)
           PY
 
       - name: Upload Frontend Report
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: FrontendReport
           path: FrontendReport.md
-          if-no-files-found: error
 
   deploy-vercel:
-    needs: [build-test, report]
+    needs: [build-test]
     runs-on: ubuntu-latest
-    if: >
-      (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
-      && secrets.VERCEL_TOKEN != ''
-      && secrets.VERCEL_ORG_ID != ''
-      && secrets.VERCEL_PROJECT_ID != ''
+    if: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'pull_request') && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
     defaults:
       run:
         shell: bash
-        working-directory: ${{ env.FRONTEND_DIR }}
+        working-directory: frontend
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Deploy to Vercel (Preview on PR, Prod on main)
         id: vercel
         uses: amondnet/vercel-action@v25
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ${{ env.FRONTEND_DIR }}
+          working-directory: frontend
           scope: ${{ secrets.VERCEL_ORG_ID }}
           vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
+
       - name: Echo deployed URL
         run: echo "Deployed URL: ${{ steps.vercel.outputs.preview-url }}"
-
-  comment-report:
-    needs: report
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download FrontendReport artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: FrontendReport
-          path: .
-      - name: Post Frontend Report as PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: FrontendReport.md
