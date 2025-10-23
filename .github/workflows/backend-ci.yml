@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# allow the workflow to comment on PRs
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   lint-test-smoke:
     runs-on: ubuntu-latest
@@ -54,7 +59,7 @@ jobs:
           print(info["title"])
           PY
 
-      # -------- Generate a ReleaseReport.md (remote prod) ----------
+      # -------- Generate a ReleaseReport.md against prod env --------
       - name: Generate Release Report (remote)
         env:
           BACKEND_URL: https://wazifni-backend.onrender.com
@@ -64,81 +69,57 @@ jobs:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
           python - <<'PY'
-          import os, json, textwrap
-          import requests
+          import os, json, requests
 
-          backend  = os.getenv("BACKEND_URL", "").rstrip("/")
-          frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
-          email    = os.getenv("REPORT_EMAIL", "")
-          pwd      = os.getenv("REPORT_PASSWORD", "")
+          backend  = os.getenv("BACKEND_URL","").rstrip("/")
+          frontend = os.getenv("FRONTEND_URL","").rstrip("/")
+          email    = os.getenv("REPORT_EMAIL","")
+          pwd      = os.getenv("REPORT_PASSWORD","")
           outpath  = os.path.join(os.getenv("GITHUB_WORKSPACE","."), "ReleaseReport.md")
 
-          def req(method, url, **kw):
+          def req(m,u,**k):
             try:
-              r = requests.request(method, url, timeout=20, **kw)
-              return r, None
+              r = requests.request(m,u,timeout=20,**k); return r,None
             except Exception as e:
-              return None, str(e)
+              return None,str(e)
 
-          results = {}
+          res = {}
+          r,_ = req("GET", f"{backend}/openapi.json")
+          res["openapi_status"] = r.status_code if r else None
+          res["openapi_ok"]     = bool(r and r.ok and "paths" in r.json())
 
-          # OpenAPI
-          r, err = req("GET", f"{backend}/openapi.json")
-          results["openapi_status"] = r.status_code if r else None
-          results["openapi_ok"] = bool(r and r.status_code==200 and "paths" in r.json())
+          h,_ = req("GET", f"{backend}/health")
+          res["health_status"] = h.status_code if h else None
+          res["health_ok"]     = bool(h and h.ok)
 
-          # Health
-          h, err = req("GET", f"{backend}/health")
-          results["health_status"] = h.status_code if h else None
-          results["health_ok"] = bool(h and h.status_code==200)
-
-          # Optional: auth + jobs
-          token = None
-          jobs_status = None
-          jobs_count  = None
+          token=None; jobs_status=None; jobs_count=None
           if email and pwd:
-            # register (idempotent)
-            req("POST", f"{backend}/auth/register",
-                json={"email": email, "password": pwd, "name":"CI Bot"})
-            # login
-            lg, err = req("POST", f"{backend}/auth/login",
-                          data={"username": email, "password": pwd})
+            req("POST", f"{backend}/auth/register", json={"email":email,"password":pwd,"name":"CI Bot"})
+            lg,_ = req("POST", f"{backend}/auth/login", data={"username":email,"password":pwd})
             if lg and lg.ok:
-              try:
-                token = lg.json().get("access_token")
-              except Exception:
-                token = None
+              try: token = lg.json().get("access_token")
+              except Exception: token=None
           if token:
-            headers = {"Authorization": f"Bearer {token}"}
-            j, err = req("GET", f"{backend}/jobs", headers=headers)
+            j,_ = req("GET", f"{backend}/jobs", headers={"Authorization":f"Bearer {token}"})
             jobs_status = j.status_code if j else None
-            try:
-              jobs_count = len(j.json()) if j and j.ok else None
-            except Exception:
-              jobs_count = None
+            try: jobs_count = len(j.json()) if j and j.ok else None
+            except Exception: jobs_count=None
 
-          results["jobs_status"] = jobs_status
-          results["jobs_count"]  = jobs_count
-
-          # CORS tests (only meaningful if frontend url exists)
-          pre_ok = simple_ok = None
-          acao_pre = acao_simple = None
+          pre_ok=simple_ok=None; acao_pre=acao_simple=None
           if frontend:
-            pre, err = req("OPTIONS", f"{backend}/jobs",
-                           headers={"Origin": frontend, "Access-Control-Request-Method":"GET"})
+            pre,_ = req("OPTIONS", f"{backend}/jobs",
+                        headers={"Origin":frontend,"Access-Control-Request-Method":"GET"})
             if pre:
               acao_pre = pre.headers.get("Access-Control-Allow-Origin")
-              pre_ok = (acao_pre in (frontend, "*"))
-            sim, err = req("GET", f"{backend}/jobs",
-                           headers={"Origin": frontend})
+              pre_ok   = (acao_pre in (frontend, "*"))
+            sim,_ = req("GET", f"{backend}/jobs", headers={"Origin":frontend})
             if sim:
               acao_simple = sim.headers.get("Access-Control-Allow-Origin")
-              simple_ok = (acao_simple in (frontend, "*"))
+              simple_ok   = (acao_simple in (frontend, "*"))
 
-          # Compose report
           go = all([
-            results["openapi_ok"],
-            results["health_ok"] if results["health_status"] is not None else True,
+            res["openapi_ok"],
+            res["health_ok"] if res["health_status"] is not None else True,
             (jobs_status==200) if jobs_status is not None else True,
             (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
           ])
@@ -149,8 +130,8 @@ jobs:
 **Frontend:** {frontend or '(not set)'}  
 
 ## Verification Matrix
-- OpenAPI: **{results['openapi_status']}** → OK: **{bool(results['openapi_ok'])}**
-- Health: **{results['health_status']}** → OK: **{bool(results['health_ok'])}**
+- OpenAPI: **{res['openapi_status']}** → OK: **{bool(res['openapi_ok'])}**
+- Health: **{res['health_status']}** → OK: **{bool(res['health_ok'])}**
 - Jobs: **{jobs_status}** (count: **{jobs_count}**)
 - CORS preflight OK: **{pre_ok}** (ACAO: {acao_pre})
 - CORS simple OK: **{simple_ok}** (ACAO: {acao_simple})
@@ -158,7 +139,7 @@ jobs:
 ## Result
 {"✅ GO — all checks passed." if go else "❌ NO-GO — see failures above."}
 """
-          with open(outpath, "w", encoding="utf-8") as f:
+          with open(outpath,"w",encoding="utf-8") as f:
             f.write(report)
           print(report)
           PY
@@ -215,3 +196,19 @@ jobs:
               --env-file /opt/dataapps/.env \
               -v /opt/dataapps/data:/app/backend/app/data \
               ${{ env.IMAGE_NAME }}:latest
+
+  comment-release-report:
+    needs: lint-test-smoke
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download ReleaseReport artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ReleaseReport
+          path: .
+
+      - name: Post Release Report as PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: ReleaseReport.md
