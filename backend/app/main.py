@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import enum
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -11,22 +12,18 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
+from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, DateTime, Enum as SAEnum, ForeignKey, Integer, String
 from sqlalchemy.orm import Session, relationship
 
-from .core.db import Base, engine, get_db  # must exist in backend/app/core/db.py
+# IMPORTANT: import DB helpers with an alias to avoid shadowing
+from .core.db import Base, engine, get_db as get_session  # backend/app/core/db.py must provide these
 
 # ------------------------------------------------------------------------------
 # Security / Auth
 # ------------------------------------------------------------------------------
-
-pwd_context = PassLibContext = PasswordHasher = None  # keep linters calm
-pwd_context = PasslibContext = PasswordHasher = None  # (optional hints for IDEs)
-
-pwd_context = PasslibContext = PasswordHasher = None  # compatibility shim
-pwd_context = PasslibContext = PasswordHasher = None
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=True)
@@ -38,7 +35,7 @@ def verify_password(raw: str, hashed: str) -> bool:
     return pwd_context.verify(raw, hashed)
 
 # ------------------------------------------------------------------------------
-# Settings (from env)
+# Settings
 # ------------------------------------------------------------------------------
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -47,8 +44,7 @@ OPENAI_PROJECT = os.getenv("OPENAI_PROJECT")  # optional
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 ALGORITHM = "HS256"
-
-from jose import jwt  # after constants to avoid flake8 circular hints
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 
 # ------------------------------------------------------------------------------
 # SQLAlchemy Models
@@ -82,19 +78,17 @@ class Job(Base):
     id = Column(Integer, primary_key=True, index=True)
     job_key = Column(String, unique=True, index=True)  # for dedup/ingestion
     company = Column(String)
-    title = Column[String]
+    title = Column(String)         # FIX: was Column[String]
     location = Column(String)
-    mode = Column(String)      # Onsite/Hybrid/Remote
-    posted = Column(String)    # e.g. "1 day ago"
+    mode = Column(String)          # Onsite/Hybrid/Remote
+    posted = Column(String)        # e.g. "1 day ago"
     salary = Column(String)
-    seniority = Column(String) # e.g. "Mid / Senior"
+    seniority = Column(String)     # e.g. "Mid / Senior"
     exp = Column(String)
     match = Column(Integer, default=80)
     perks = Column(String)
     description = Column(String)
 
-
-import enum
 
 class ActionType(str, enum.Enum):
     saved = "saved"
@@ -110,7 +104,8 @@ class JobAction(Base):
     action = Column(SAEnum(ActionType), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# Create tables (reset DB if schema changed)
+
+# Create tables on import (okay for MVP; use Alembic for prod migrations)
 Base.metadata.create_all(bind=engine)
 
 # ------------------------------------------------------------------------------
@@ -181,7 +176,7 @@ class UAEJobFilters(BaseModel):
     work_mode: Optional[str] = None
     experience_level: Optional[str] = None
     job_type: Optional[str] = None
-    posted_within_days: Optional[int] = None  # demo data uses strings; treated as hint
+    posted_within_days: Optional[int] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     exclude_h1b: bool = True
@@ -189,38 +184,48 @@ class UAEJobFilters(BaseModel):
 # ------------------------------------------------------------------------------
 # FastAPI App & CORS
 # ------------------------------------------------------------------------------
-# Determine CORS origins from environment variables
-cors_origins_env = os.getenv("CORS_ORIGINS") or os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
-cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
+cors_origins_env = os.getenv("CORS_ORIGINS") or os.getenv(
+    "CORS_ALLOW_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+)
+cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
 
 app = FastAPI(title="Wazfini JobRight Suite API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-        allow_origins=cors_origins,
+    allow_origins=cors_origins,   # FIX: correct indentation
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 
-# ----------------------------------------------------------------------------
-# Auth Helpers
+# Health endpoint (for Render/CI)
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+# ------------------------------------------------------------------------------
+# Auth Helpers (do NOT shadow get_session)
 # ------------------------------------------------------------------------------
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, os.getenv("JWT_SECRET", "dev-secret"), algorithm=ALGORITHM)
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
 
-def get_db(token=Depends(bearer_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    token=Depends(bearer_scheme),
+    db: Session = Depends(get_session),
+) -> User:
     try:
-        payload = jwt.decode(token.credentials, os.getenv("JWT_SECRET", "dev-secret"), algorithms=[ALGORITHM])
+        payload = jwt.decode(token.credentials, JWT_SECRET, algorithms=[ALGORITHM])
         user_id = int(payload.get("sub"))
     except Exception:
         raise HTTPException(status_code=403, detail="Not authenticated")
-    user = db.query(User).get(user_id)
+    user = db.query(User).get(user_id)  # legacy OK for MVP
     if not user:
         raise HTTPException(status_code=403, detail="Not authenticated")
     return user
@@ -245,7 +250,7 @@ def seed_jobs(db: Session) -> None:
             exp="5+ years",
             match=96,
             perks="Bonus; Healthcare",
-            description="Build dashboards, SQL, analytics, stakeholder communication."
+            description="Build dashboards, SQL, analytics, stakeholder communication.",
         ),
         Job(
             job_key="temu1",
@@ -259,7 +264,7 @@ def seed_jobs(db: Session) -> None:
             exp="6+ years",
             match=92,
             perks="Stock; Remote",
-            description="ETL pipelines, Spark, Databricks, data modeling."
+            description="ETL pipelines, Spark, Databricks, data modeling.",
         ),
         Job(
             job_key="dub1",
@@ -273,7 +278,7 @@ def seed_jobs(db: Session) -> None:
             exp="5+ years",
             match=99,
             perks="Housing Allowance; Medical",
-            description="Azure-based data lake & analytics for banking."
+            description="Azure-based data lake & analytics for banking.",
         ),
     ]
     db.add_all(demo)
@@ -284,7 +289,7 @@ def seed_jobs(db: Session) -> None:
 # ------------------------------------------------------------------------------
 
 @app.post("/auth/register", response_model=UserOut)
-def register(payload: RegisterIn, db: Session = Depends(get_db)):
+def register(payload: RegisterIn, db: Session = Depends(get_session)):
     existing = db.query(User).filter(User.email == payload.email.lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered.")
@@ -299,14 +304,14 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     return user
 
 @app.post("/auth/login", response_model=Token)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)):
     user = db.query(User).filter(User.email == form.username.lower()).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect email or password.")
     return Token(access_token=create_access_token({"sub": str(user.id)}))
 
 @app.get("/me", response_model=UserOut)
-def me(current: User = Depends(get_db)):
+def me(current: User = Depends(get_current_user)):
     return current
 
 # ------------------------------------------------------------------------------
@@ -314,7 +319,7 @@ def me(current: User = Depends(get_db)):
 # ------------------------------------------------------------------------------
 
 @app.get("/resumes", response_model=List[ResumeOut])
-def list_resumes(current: User = Depends(get_db), db: Session = Depends(get_db)):
+def list_resumes(current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     return (
         db.query(Resume)
         .filter(Resume.user_id == current.id)
@@ -323,7 +328,7 @@ def list_resumes(current: User = Depends(get_db), db: Session = Depends(get_db))
     )
 
 @app.post("/resumes", response_model=ResumeOut)
-def create_resume(payload: ResumeIn, current: User = Depends(get_db), db: Session = Depends(get_db)):
+def create_resume(payload: ResumeIn, current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     item = Resume(user_id=current.id, title=payload.title.strip(), content=payload.content)
     db.add(item)
     db.commit()
@@ -334,8 +339,8 @@ def create_resume(payload: ResumeIn, current: User = Depends(get_db), db: Sessio
 def update_resume(
     resume_id: int,
     payload: ResumeIn,
-    current: User = Depends(get_db),
-    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
     item = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current.id).first()
     if not item:
@@ -349,7 +354,7 @@ def update_resume(
     return item
 
 @app.delete("/resumes/{resume_id}", status_code=204)
-def delete_resume(resume_id: int, current: User = Depends(get_db), db: Session = Depends(get_db)):
+def delete_resume(resume_id: int, current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     item = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Resume not found.")
@@ -362,19 +367,19 @@ def delete_resume(resume_id: int, current: User = Depends(get_db), db: Session =
 # ------------------------------------------------------------------------------
 
 @app.get("/jobs", response_model=List[JobOut])
-def list_jobs(current: User = Depends(get_db), db: Session = Depends(get_db)):
+def list_jobs(current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     seed_jobs(db)
     return db.query(Job).order_by(Job.match.desc()).all()
 
 @app.get("/jobs/{job_id}", response_model=JobOut)
-def job_detail(job_id: int, current: User = Depends(get_db), db: Session = Depends(get_db)):
+def job_detail(job_id: int, current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     j = db.query(Job).filter(Job.id == job_id).first()
     if not j:
-        raise HTTPException(404, "Job not found.")
+        raise HTTPException(status_code=404, detail="Job not found.")
     return j
 
 @app.post("/jobs/action")
-def job_action(payload: JobActionIn, current: User = Depends(get_db), db: Session = Depends(get_db)):
+def job_action(payload: JobActionIn, current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     existing = db.query(JobAction).filter(
         JobAction.user_id == current.id,
         JobAction.job_id == payload.job_id,
@@ -387,18 +392,18 @@ def job_action(payload: JobActionIn, current: User = Depends(get_db), db: Sessio
     else:
         j = db.query(Job).filter(Job.id == payload.job_id).first()
         if not j:
-            raise HTTPException(404, "Job not found.")
+            raise HTTPException(status_code=404, detail="Job not found.")
         db.add(JobAction(user_id=current.id, job_id=payload.job_id, action=payload.action))
         db.commit()
         state = "added"
     return {"state": state, "counts": _user_action_counts(db, current.id)}
 
 @app.get("/jobs/counters")
-def job_counters(current: User = Depends(get_db), db: Session = Depends(get_db)):
+def job_counters(current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     return _user_action_counts(db, current.id)
 
 @app.get("/jobs/by_action/{action}", response_model=List[JobOut])
-def jobs_by_action(action: ActionType, current: User = Depends(get_db), db: Session = Depends(get_db)):
+def jobs_by_action(action: ActionType, current: User = Depends(get_current_user), db: Session = Depends(get_session)):
     seed_jobs(db)
     ids = [
         ja.job_id
@@ -424,8 +429,8 @@ def _user_action_counts(db: Session, user_id: int) -> Dict[str, int]:
 @app.post("/jobs/search", response_model=List[JobOut])
 def jobs_search(
     filters: UAEJobFilters,
-    current: User = Depends(get_db),
-    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
     seed_jobs(db)
     q = db.query(Job)
@@ -470,7 +475,7 @@ def _parse_resume_text(text: str) -> Dict[str, Optional[str]]:
     }
 
 @app.post("/upload/resume")
-async def upload_resume(file: UploadFile = File(...), current: User = Depends(get_db)):
+async def upload_resume(file: UploadFile = File(...), current: User = Depends(get_current_user)):
     raw = await file.read()
     text = raw.decode(errors="ignore") if isinstance(raw, (bytes, bytearray)) else str(raw)
     return {"parsed": _parse_resume_text(text)}
@@ -487,32 +492,31 @@ PENGUIN_SYSTEM = (
 @app.post("/assistant/chat", response_model=CopilotOut)
 async def assistant_chat(
     payload: CopilotIn,
-    current: User = Depends(get_db),
-    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
-    job = db.query(Job).filter(Job.id == payload.job_id).first()
-    resume = None
-    if payload.use_active_resume:
-        resume = (
-            db.query(Resume)
-            .filter(Resume.user_id == current.id)
-            .order_by(Resume.updated_at.desc())
-            .first()
-        )
+    job = db.query(Job).filter(Job.id == payload.job_id).first() if payload.job_id else None
+    resume = (
+        db.query(Resume)
+        .filter(Resume.user_id == current.id)
+        .order_by(Resume.updated_at.desc())
+        .first()
+        if payload.use_active_resume else None
+    )
 
     context = {
         "user": {"id": current.id, "email": current.email, "name": current.name},
         "job": {
             "id": job.id if job else None,
-            "title": job.title if job else None,
-            "company": job.company if job else None,
-            "location": job.location if job else None,
-            "mode": job.mode if job else None,
-            "seniority": job.seniority if job else None,
+            "title": getattr(job, "title", None),
+            "company": getattr(job, "company", None),
+            "location": getattr(job, "location", None),
+            "mode": getattr(job, "mode", None),
+            "seniority": getattr(job, "seniority", None),
             "description": (job.description[:1200] + "…") if job and job.description else None,
         },
         "resume": {
-            "title": resume.title if resume else None,
+            "title": getattr(resume, "title", None),
             "content": (resume.content[:3000] + "…") if resume and resume.content else None,
         },
     }
@@ -526,10 +530,14 @@ async def assistant_chat(
             resp = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers=headers,
-                json={"model": OPENAI_MODEL, "messages": [
-                    {"role": "system", "content": PENGUIN_SYSTEM},
-                    {"role": "user", "content": f"Question: {payload.question}\n\nContext: {context}"},
-                ], "temperature": 0.3},
+                json={
+                    "model": OPENAI_MODEL,
+                    "messages": [
+                        {"role": "system", "content": PENGUIN_SYSTEM},
+                        {"role": "user", "content": f"Question: {payload.question}\n\nContext: {context}"},
+                    ],
+                    "temperature": 0.3,
+                },
             )
             resp.raise_for_status()
             data = resp.json()
@@ -542,7 +550,7 @@ async def assistant_chat(
 @app.post("/tailor", response_model=CopilotOut)
 async def tailor_alias(
     payload: CopilotIn,
-    current: User = Depends(get_db),
-    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
     return await assistant_chat(payload, current=current, db=db)
