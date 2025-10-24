@@ -168,7 +168,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Only the token is required here if frontend/vercel.json links the project.
+      # ✅ Check required secrets
       - name: Check required secrets
         id: secretcheck
         run: |
@@ -176,6 +176,7 @@ jobs:
           [ -z "${{ secrets.VERCEL_TOKEN }}" ] && echo "VERCEL_TOKEN missing" && missing=1
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
 
+      # ✅ Deploy preview (PRs or non-main branches)
       - name: Deploy to Vercel (Preview)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
         id: vercel_preview
@@ -184,6 +185,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           working-directory: frontend
 
+      # ✅ Deploy production (main branch)
       - name: Deploy to Vercel (Prod)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
         id: vercel_prod
@@ -191,8 +193,9 @@ jobs:
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           working-directory: frontend
-          vercel-args: "--prod --confirm --yes"
+          vercel-args: "--prod"
 
+      # ✅ Echo URLs in logs
       - name: Echo deployed URL (preview)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
         env:
@@ -206,3 +209,4 @@ jobs:
           URL: ${{ steps.vercel_prod.outputs['preview-url'] }}
         run: |
           echo "Production URL: $URL"
+
