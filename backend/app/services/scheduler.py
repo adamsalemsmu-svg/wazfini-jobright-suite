@@ -9,22 +9,24 @@ from .adapters import ADAPTERS
 
 
 async def ingest_once() -> None:
-    """Fetch jobs from all adapters and upsert new ones."""
+    """
+    Fetch jobs from all adapters and upsert new ones.
+    """
     async with AsyncSessionLocal() as db:
         for adapter in ADAPTERS:
             jobs = await adapter.fetch()
 
             for j in jobs:
-                # does a job with same title/company/url already exist?
-                exists = await db.execute(
-                    select(Job).where(
+                # Check if a job with same title/company/url already exists
+                res = await db.execute(
+                    select(Job.id).where(
                         Job.title == j["title"],
                         Job.company == j["company"],
                         Job.apply_url == j["apply_url"],
                     )
                 )
 
-                if exists.scalars().first():
+                if res.scalar() is not None:
                     continue
 
                 db.add(Job(**j))
@@ -32,13 +34,13 @@ async def ingest_once() -> None:
         await db.commit()
 
 
-# a single scheduler instance for the process
+# A single scheduler instance for the process
 scheduler = AsyncIOScheduler()
 
 
 def start_scheduler(interval_min: int = 10) -> None:
     """
-    Start/refresh the ingest job on an interval.
+    Start or refresh the ingest job on a fixed interval.
     If the job already exists, it will be replaced.
     """
     scheduler.add_job(
