@@ -158,7 +158,7 @@ jobs:
         with:
           name: FrontendReport
           path: FrontendReport.md
-          
+
   deploy-vercel:
     needs: [build-test]
     runs-on: ubuntu-latest
@@ -168,13 +168,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Only the token is required here if frontend/vercel.json links the project.
       - name: Check required secrets
         id: secretcheck
         run: |
           missing=0
           [ -z "${{ secrets.VERCEL_TOKEN }}" ] && echo "VERCEL_TOKEN missing" && missing=1
-          [ -z "${{ secrets.VERCEL_ORG_ID }}" ] && echo "VERCEL_ORG_ID missing" && missing=1
-          [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ] && echo "VERCEL_PROJECT_ID missing" && missing=1
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Vercel (Preview)
@@ -183,10 +182,7 @@ jobs:
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: frontend
-          scope: ${{ secrets.VERCEL_ORG_ID }}
 
       - name: Deploy to Vercel (Prod)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
@@ -194,11 +190,8 @@ jobs:
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: frontend
-          scope: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-args: "--prod"
+          vercel-args: "--prod --confirm --yes"
 
       - name: Echo deployed URL (preview)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
