@@ -1,7 +1,12 @@
-# backend/app/services/tailor.py
-import os, re, time, hashlib
-from typing import List, Tuple, Dict, Any
+# stdlib
+import hashlib
+import os
+import re
+import time
 from pathlib import Path
+from typing import Dict, List, Tuple  # removed unused Any
+
+# third-party
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from openai import OpenAI
