@@ -23,13 +23,16 @@ async function request(path, opts = {}) {
 
 export const api = {
   login: async (username, password) => {
-    const body = new URLSearchParams({ username, password });
+    const body = new URLSearchParams({
+      username: username.trim().toLowerCase(),
+      password,
+    }).toString();
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
     });
-    if (!res.ok) throw new Error("Login failed");
+    if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
   jobs: () => request("/jobs"),
