@@ -12,7 +12,6 @@ async def ingest_once() -> None:
     """
     async with AsyncSessionLocal() as db:
         for adapter in ADAPTERS:
-<<<<<<< HEAD
             jobs = await adapter.fetch()
 
             for j in jobs:
@@ -26,13 +25,6 @@ async def ingest_once() -> None:
                 )
 
                 if res.scalar() is not None:
-=======
-            for j in await adapter.fetch():
-                exists = await db.execute(select(Job).where(
-                    Job.title==j["title"], Job.company==j["company"], Job.apply_url==j["apply_url"]
-                ))
-               if exists.scalars().first():
->>>>>>> origin/main
                     continue
 
                 db.add(Job(**j))
