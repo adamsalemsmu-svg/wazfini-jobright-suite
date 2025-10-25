@@ -2,10 +2,12 @@ from typing import Optional, List
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str
     name: Optional[str] = None
+
 
 class Profile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -20,6 +22,7 @@ class Profile(SQLModel, table=True):
     educations: List["Education"] = Relationship(back_populates="profile")
     skills: List["Skill"] = Relationship(back_populates="profile")
 
+
 class Experience(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     profile_id: int = Field(foreign_key="profile.id")
@@ -29,6 +32,7 @@ class Experience(SQLModel, table=True):
     end_date: Optional[str] = None
     description: Optional[str] = None
     profile: Profile = Relationship(back_populates="experiences")
+
 
 class Education(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -40,11 +44,13 @@ class Education(SQLModel, table=True):
     end_date: Optional[str] = None
     profile: Profile = Relationship(back_populates="educations")
 
+
 class Skill(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     profile_id: int = Field(foreign_key="profile.id")
     name: str
     profile: Profile = Relationship(back_populates="skills")
+
 
 class Job(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

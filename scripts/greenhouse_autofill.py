@@ -78,7 +78,9 @@ def attach_files(page, resume_path: str) -> None:
         files.first.set_input_files(resume_path)
 
 
-def run(job_url: str, profile_json: str, resume: str | None = None, headless: bool = True) -> None:
+def run(
+    job_url: str, profile_json: str, resume: str | None = None, headless: bool = True
+) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
         context = browser.new_context()

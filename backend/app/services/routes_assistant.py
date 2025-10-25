@@ -4,6 +4,7 @@ from ..schemas import ChatIn, ChatOut
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
+
 @router.post("/chat", response_model=ChatOut)
 async def penguin_chat(payload: ChatIn):
     ctx = {"profile_id": payload.profile_id, "job_id": payload.job_id}

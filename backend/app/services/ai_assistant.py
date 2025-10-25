@@ -10,13 +10,17 @@ SYSTEM_PROMPT = (
     "and avoid legal claims. Be concise."
 )
 
+
 async def penguin_reply(message: str, context: dict) -> str:
     try:
         r = await openai.ChatCompletion.acreate(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps({"message": message, **(context or {})})},
+                {
+                    "role": "user",
+                    "content": json.dumps({"message": message, **(context or {})}),
+                },
             ],
             temperature=0.3,
         )

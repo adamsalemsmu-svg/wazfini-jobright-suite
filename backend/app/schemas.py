@@ -2,6 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 
+
 class ExperienceIn(BaseModel):
     company: str
     title: str
@@ -9,12 +10,14 @@ class ExperienceIn(BaseModel):
     end_date: Optional[str] = None
     description: Optional[str] = None
 
+
 class EducationIn(BaseModel):
     school: str
     degree: Optional[str] = None
     gpa: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
 
 class ProfileIn(BaseModel):
     user_email: str
@@ -27,6 +30,7 @@ class ProfileIn(BaseModel):
     experiences: List[ExperienceIn] = []
     educations: List[EducationIn] = []
     skills: List[str] = []
+
 
 class JobOut(BaseModel):
     id: int
@@ -46,6 +50,7 @@ class JobOut(BaseModel):
     description: Optional[str]
     source: Optional[str]
 
+
 class JobFilters(BaseModel):
     location: Optional[str] = None
     industry: Optional[str] = None
@@ -60,10 +65,12 @@ class JobFilters(BaseModel):
     company_size: Optional[str] = None
     q: Optional[str] = None
 
+
 class ChatIn(BaseModel):
     message: str
     profile_id: Optional[int] = None
     job_id: Optional[int] = None
+
 
 class ChatOut(BaseModel):
     reply: str

@@ -17,21 +17,28 @@ root_env = Path(__file__).resolve().parents[2] / ".env"
 if root_env.exists():
     load_dotenv(root_env, override=True)
 
+
 def _env(name: str, default: str = "") -> str:
     return (os.getenv(name, default) or "").strip()
+
 
 MOCK_TAILORING = _env("MOCK_TAILORING", "0").lower() in ("1", "true", "yes", "on")
 OPENAI_API_KEY = _env("OPENAI_API_KEY")
 OPENAI_PROJECT = _env("OPENAI_PROJECT")
 
 # Cache settings
-CACHE_TTL_SECONDS = int(_env("TAILOR_CACHE_TTL_SECONDS", "86400"))   # 24h by default
-CACHE_MAX_ITEMS   = int(_env("TAILOR_CACHE_MAX_ITEMS", "200"))
+CACHE_TTL_SECONDS = int(_env("TAILOR_CACHE_TTL_SECONDS", "86400"))  # 24h by default
+CACHE_MAX_ITEMS = int(_env("TAILOR_CACHE_MAX_ITEMS", "200"))
 
 print("TAILOR: MOCK_TAILORING =", MOCK_TAILORING)
 print("TAILOR: OPENAI_API_KEY set =", bool(OPENAI_API_KEY))
 print("TAILOR: OPENAI_PROJECT =", OPENAI_PROJECT or "(none)")
-print("TAILOR: CACHE_TTL_SECONDS =", CACHE_TTL_SECONDS, "CACHE_MAX_ITEMS =", CACHE_MAX_ITEMS)
+print(
+    "TAILOR: CACHE_TTL_SECONDS =",
+    CACHE_TTL_SECONDS,
+    "CACHE_MAX_ITEMS =",
+    CACHE_MAX_ITEMS,
+)
 
 SYSTEM_PROMPT = (
     "You are an expert resume tailor and ATS optimizer. "
@@ -44,6 +51,7 @@ SYSTEM_PROMPT = (
 # --------------------------------------------------------------------------------------
 # key -> (stored_at_ts, (tailored_text, ats_hint, keywords))
 _CACHE: Dict[str, Tuple[float, Tuple[str, str, List[str]]]] = {}
+
 
 def _prune_cache() -> None:
     """Remove expired entries and shrink if above max size."""
@@ -61,17 +69,24 @@ def _prune_cache() -> None:
         for k, _ in items[: len(_CACHE) - CACHE_MAX_ITEMS]:
             _CACHE.pop(k, None)
 
+
 def _sha256(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-def _cache_key(resume_text: str, job_text: str, language: str, style: str, model: str) -> str:
-    return "|".join([
-        _sha256(resume_text),
-        _sha256(job_text),
-        language.lower().strip(),
-        style.lower().strip(),
-        model.lower().strip(),
-    ])
+
+def _cache_key(
+    resume_text: str, job_text: str, language: str, style: str, model: str
+) -> str:
+    return "|".join(
+        [
+            _sha256(resume_text),
+            _sha256(job_text),
+            language.lower().strip(),
+            style.lower().strip(),
+            model.lower().strip(),
+        ]
+    )
+
 
 # --------------------------------------------------------------------------------------
 #                                     Utilities
@@ -80,8 +95,23 @@ def extract_keywords(job_text: str) -> List[str]:
     tokens = re.findall(r"[A-Za-z][A-Za-z0-9+\-#\.]{2,}", job_text)
     seen, out = set(), []
     signals = [
-        "sql", "python", "snowflake", "azure", "aws", "gcp", "power", "tableau",
-        "dbt", "spark", "bi", "etl", "api", "databricks", "fabric", "airflow", "kafka"
+        "sql",
+        "python",
+        "snowflake",
+        "azure",
+        "aws",
+        "gcp",
+        "power",
+        "tableau",
+        "dbt",
+        "spark",
+        "bi",
+        "etl",
+        "api",
+        "databricks",
+        "fabric",
+        "airflow",
+        "kafka",
     ]
     for t in tokens:
         k = t.strip(",.;:()[]{}").strip()
@@ -95,6 +125,7 @@ def extract_keywords(job_text: str) -> List[str]:
             break
     return out
 
+
 def _mock_tailor(resume_text: str, job_text: str, kws: List[str]) -> str:
     bullets = [
         f"Aligned experience to JD focus areas ({', '.join(kws[:8])})",
@@ -102,7 +133,7 @@ def _mock_tailor(resume_text: str, job_text: str, kws: List[str]) -> str:
         "Developed dashboards for KPI visibility and stakeholder decision-making.",
         "Improved data quality to 99.9% via validations, tests, and monitoring.",
         "Automated recurring analytics using Python and SQL for faster SLAs.",
-        "Collaborated with product/ops to prioritize and deliver data initiatives."
+        "Collaborated with product/ops to prioritize and deliver data initiatives.",
     ]
     return (
         "### Tailored Resume (Mock)\n\n"
@@ -111,12 +142,14 @@ def _mock_tailor(resume_text: str, job_text: str, kws: List[str]) -> str:
         + ", ".join(kws[:15])
     )
 
+
 def _openai_client() -> OpenAI:
     key = os.getenv("OPENAI_API_KEY")
     proj = os.getenv("OPENAI_PROJECT")
     if not key:
         raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY")
     return OpenAI(api_key=key, project=proj or None)
+
 
 # Some suggested models you likely have access to
 RECOMMENDED_MODELS = [
@@ -125,9 +158,11 @@ RECOMMENDED_MODELS = [
     "gpt-3.5-turbo",
 ]
 
+
 def list_recommended_models() -> List[str]:
     """Return a static list of recommended models; you can call the API to enumerate too."""
     return RECOMMENDED_MODELS
+
 
 # --------------------------------------------------------------------------------------
 #                                       Tailor
@@ -172,13 +207,16 @@ def tailor_resume_for_job(
     client = _openai_client()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": (
-            f"Language: {language}\nStyle: {style}\n\n"
-            f"JOB DESCRIPTION:\n{job_text}\n\n"
-            f"RESUME:\n{resume_text}\n\n"
-            "Rewrite the resume content to align with the JD using truthful, measurable bullets "
-            "(8–12 per role). Finish with a short 'ATS Optimization Tip' (<60 words)."
-        )},
+        {
+            "role": "user",
+            "content": (
+                f"Language: {language}\nStyle: {style}\n\n"
+                f"JOB DESCRIPTION:\n{job_text}\n\n"
+                f"RESUME:\n{resume_text}\n\n"
+                "Rewrite the resume content to align with the JD using truthful, measurable bullets "
+                "(8–12 per role). Finish with a short 'ATS Optimization Tip' (<60 words)."
+            ),
+        },
     ]
 
     try:
