@@ -4,13 +4,8 @@ import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  root: __dirname,
   plugins: [react()],
   build: {
-    modulePreload: false,
-    outDir: resolve(__dirname, 'dist'),
-    rollupOptions: {
-      input: resolve(__dirname, 'index.html'),
-    },
+    outDir: 'dist',
   },
 })
