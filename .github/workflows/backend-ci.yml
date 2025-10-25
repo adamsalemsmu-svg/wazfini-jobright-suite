@@ -98,13 +98,27 @@ jobs:
       - name: Check required secrets
         id: secretcheck
         run: |
-          missing=0
-          [ -z "${{ secrets.RENDER_API_KEY }}" ] && echo "RENDER_API_KEY missing" && missing=1
-          [ -z "${{ secrets.RENDER_SERVICE_ID }}" ] && echo "RENDER_SERVICE_ID missing" && missing=1
-          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+          mode=""
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            mode="hook"
+          elif [ -n "${{ secrets.RENDER_API_KEY }}" ] && [ -n "${{ secrets.RENDER_SERVICE_ID }}" ]; then
+            mode="api"
+          else
+            echo "Render deploy credentials missing" >&2
+            echo "mode=" >> "$GITHUB_OUTPUT"
+            echo "missing=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "missing=0" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger Render deploy
-        if: ${{ steps.secretcheck.outputs.missing == '0' }}
+      - name: Trigger Render deploy (hook)
+        if: ${{ steps.secretcheck.outputs.mode == 'hook' }}
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Trigger Render deploy (API)
+        if: ${{ steps.secretcheck.outputs.mode == 'api' }}
         run: |
           curl -fsS -X POST \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
