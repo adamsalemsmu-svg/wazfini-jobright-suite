@@ -366,7 +366,7 @@ def login(
 
 @app.get("/me", response_model=UserOut)
 def me(current: User = Depends(get_current_user)):
-    return current
+    return UserOut.model_validate(current)
 
 
 # ------------------------------------------------------------------------------
