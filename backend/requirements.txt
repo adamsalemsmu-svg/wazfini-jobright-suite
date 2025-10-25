@@ -12,7 +12,8 @@ python-dotenv>=1.0
 alembic>=1.13,<1.14               # migrations (sync)
 
 # --- Auth / Security ---
-passlib[bcrypt]>=1.7,<1.8
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 python-jose>=3.3,<3.4
 
 # --- HTTP client ---

@@ -29,7 +29,10 @@ from .core.db import (
 # Security / Auth
 # ------------------------------------------------------------------------------
 
-pwd_context = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt_sha256", "bcrypt", "pbkdf2_sha256"],
+    deprecated="auto",
+)
 bearer_scheme = HTTPBearer(auto_error=True)
 
 
@@ -38,7 +41,20 @@ def get_password_hash(raw: str) -> str:
 
 
 def verify_password(raw: str, hashed: str) -> bool:
-    return pwd_context.verify(raw, hashed)
+    try:
+        return pwd_context.verify(raw, hashed)
+    except Exception:
+        return False
+
+
+def maybe_upgrade_password(db: Session, user: "User", raw: str) -> None:
+    """Re-hash with strongest scheme if the stored hash is older."""
+    scheme = pwd_context.identify(user.password_hash)
+    if scheme != "bcrypt_sha256" or pwd_context.needs_update(user.password_hash):
+        user.password_hash = get_password_hash(raw)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
 
 # ------------------------------------------------------------------------------
@@ -344,6 +360,7 @@ def login(
     user = db.query(User).filter(User.email == form.username.lower()).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect email or password.")
+    maybe_upgrade_password(db, user, form.password)
     return Token(access_token=create_access_token({"sub": str(user.id)}))
 
 
