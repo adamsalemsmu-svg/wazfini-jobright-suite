@@ -1,3 +1,4 @@
 # Deployment Notes
 
 - Redeploy triggered on 2025-10-25 to refresh frontend deployment.
+- Backend auto-deploy tested on 2025-10-25 after adding Render secrets.
