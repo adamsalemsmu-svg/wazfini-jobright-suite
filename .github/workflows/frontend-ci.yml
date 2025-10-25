@@ -204,14 +204,17 @@ jobs:
           vercel-args: "--prod"
 
       # ✅ Output the deployed URLs
+      # ✅ Output the deployed URLs
       - name: Echo deployed URL (preview)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
         env:
           URL: ${{ steps.vercel_preview.outputs['preview-url'] }}
-        run: echo "Preview URL: $URL"
+        run: |
+          echo "Preview URL: $URL"
 
       - name: Echo deployed URL (prod)
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
         env:
           URL: ${{ steps.vercel_prod.outputs['preview-url'] }}
-        run: echo "Production URL: $URL"
+        run: |
+          echo "Production URL: $URL"
