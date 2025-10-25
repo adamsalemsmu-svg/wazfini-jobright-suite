@@ -1,4 +1,5 @@
 {
+  "framework": null,
   "buildCommand": "echo 'CWD:' && pwd && echo 'ROOT LIST:' && ls -la && echo 'FRONTEND LIST:' && ls -la frontend || true && echo 'PRINT index.html if present:' && ls -la frontend/index.html || true && npm --prefix frontend ci && npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
   "routes": [
