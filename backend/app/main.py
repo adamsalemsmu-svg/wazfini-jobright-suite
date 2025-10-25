@@ -29,7 +29,7 @@ from .core.db import (
 # Security / Auth
 # ------------------------------------------------------------------------------
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=True)
 
 
