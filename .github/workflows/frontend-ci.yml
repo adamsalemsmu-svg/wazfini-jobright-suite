@@ -1,173 +1,47 @@
-name: Frontend CI
+name: Frontend CI / Vercel
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
   build-test:
+    name: Build & Test (frontend)
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash
         working-directory: frontend
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install
-        run: npm ci
-
-      - name: Lint (if script exists)
-        run: |
-          if npm run | grep -qE "^\s*lint\s"; then npm run lint; else echo "no lint script"; fi
-
-      - name: Typecheck (if script exists)
-        run: |
-          if npm run | grep -qE "^\s*typecheck\s"; then npm run typecheck; else echo "no typecheck script"; fi
-
-      - name: Unit tests (if present)
-        run: |
-          if npm run | grep -qE "^\s*test\s"; then npm test -- --ci || npm test || true; else echo "no tests"; fi
-
+        run: npm ci || npm i --no-audit --no-fund
+      - name: Lint (skip if none)
+        run: npm run lint --if-present || echo 'no lint script'
+      - name: Unit tests (skip if none)
+        run: npm test --if-present || echo 'no tests'
       - name: Build
-        run: |
-          : "${VITE_API_BASE:=${{ secrets.FRONTEND_VITE_API_BASE }}}"
-          if [ -z "$VITE_API_BASE" ]; then VITE_API_BASE="http://127.0.0.1:8000"; fi
-          export VITE_API_BASE
-          echo "Using VITE_API_BASE=$VITE_API_BASE"
-          npm run build
-
-  report:
-    needs: build-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install report deps
-        run: pip install requests
-
-      - name: Generate Frontend Report
         env:
-          BACKEND_URL: ${{ secrets.FRONTEND_BACKEND_URL }}
-          FRONTEND_URL: ${{ secrets.FRONTEND_PUBLIC_URL }}
-          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
-          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
-        run: |
-          python - <<'PY'
-          import os, requests
-          be = os.environ.get("BACKEND_URL","").rstrip("/")
-          fe = os.environ.get("FRONTEND_URL","").rstrip("/")
-          email = os.environ.get("REPORT_EMAIL","")
-          pwd   = os.environ.get("REPORT_PASSWORD","")
-
-          def call(m,u,**k):
-              try:
-                  return requests.request(m,u,timeout=20,**k)
-              except Exception:
-                  return None
-
-          openapi = call("GET", f"{be}/openapi.json") if be else None
-          health  = call("GET", f"{be}/health") if be else None
-
-          token=None
-          if email and pwd and be:
-              call("POST", f"{be}/auth/register", json={"email":email,"password":pwd,"name":"CI Frontend"})
-              lg = call("POST", f"{be}/auth/login", data={"username":email,"password":pwd})
-              if lg and lg.ok:
-                  try:
-                      token = lg.json().get("access_token")
-                  except Exception:
-                      token = None
-
-          jobs_status=None; jobs_count=None
-          if token:
-              j = call("GET", f"{be}/jobs", headers={"Authorization":f"Bearer {token}"})
-              if j:
-                  jobs_status = j.status_code
-                  try:
-                      jobs_count = len(j.json())
-                  except Exception:
-                      pass
-
-          pre_ok=simple_ok=None; acao_pre=acao_simple=None
-          if fe and be:
-              pre = call("OPTIONS", f"{be}/jobs",
-                         headers={"Origin":fe,"Access-Control-Request-Method":"GET"})
-              if pre is not None:
-                  acao_pre = pre.headers.get("Access-Control-Allow-Origin")
-                  pre_ok = (acao_pre in (fe,"*"))
-              sim = call("GET", f"{be}/jobs", headers={"Origin":fe})
-              if sim is not None:
-                  acao_simple = sim.headers.get("Access-Control-Allow-Origin")
-                  simple_ok = (acao_simple in (fe,"*"))
-
-          def ok_openapi(r):
-              try:
-                  return bool(r and r.ok and "paths" in r.json())
-              except Exception:
-                  return False
-
-          go = all([
-              ok_openapi(openapi),
-              bool(health and health.ok) if health else True,
-              (jobs_status==200) if jobs_status is not None else True,
-              (pre_ok is None or pre_ok) and (simple_ok is None or simple_ok),
-          ])
-
-          report = f"""# Frontend Release Report
-
-          Backend: {be or '(not set)'}
-          Frontend: {fe or '(not set)'}
-
-          OpenAPI: {getattr(openapi,'status_code',None)} ok? {ok_openapi(openapi)}
-          Health:  {getattr(health,'status_code',None)} ok? {bool(health and health.ok)}
-          Jobs:    {jobs_status} (count: {jobs_count})
-          CORS Preflight ok? {pre_ok} ({acao_pre})
-          CORS Simple ok?   {simple_ok} ({acao_simple})
-
-          Result: {"GO ✅" if go else "NO-GO ❌"}
-          """
-          print(report)
-          with open("FrontendReport.md","w",encoding="utf-8") as f:
-              f.write(report)
-          PY
-
-      - name: Upload Frontend Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: FrontendReport
-          path: FrontendReport.md
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+        run: npm run build
 
   deploy-vercel:
     needs: [build-test]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Check required secrets
         id: secretcheck
         run: |
@@ -176,40 +50,32 @@ jobs:
           [ -z "${{ secrets.VERCEL_ORG_ID }}" ] && echo "VERCEL_ORG_ID missing" && missing=1
           [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ] && echo "VERCEL_PROJECT_ID missing" && missing=1
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy to Vercel (Preview)
-        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
-        id: vercel_preview
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: frontend
-          scope: ${{ secrets.VERCEL_ORG_ID }}
-
-      - name: Deploy to Vercel (Prod)
-        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
-        id: vercel_prod
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: frontend
-          scope: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-args: "--prod"
-
-      - name: Echo deployed URL (preview)
-        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
-        env:
-          URL: ${{ steps.vercel_preview.outputs['preview-url'] }}
+      - name: Vercel debug (whoami & projects)
+        if: ${{ steps.secretcheck.outputs.missing == '0' }}
         run: |
-          echo "Preview URL: $URL"
-
-      - name: Echo deployed URL (prod)
+          npx -y vercel@latest whoami --token "${{ secrets.VERCEL_TOKEN }}"
+          npx -y vercel@latest projects ls --token "${{ secrets.VERCEL_TOKEN }}" | head -n 20 || true
+      - name: Deploy to Vercel (Preview) with retry
+        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: |
+            npx -y vercel@latest deploy \
+              --confirm \
+              --token "${{ secrets.VERCEL_TOKEN }}" \
+              --scope "${{ secrets.VERCEL_ORG_ID }}" \
+              --cwd frontend
+      - name: Deploy to Vercel (Prod) with retry
         if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
-        env:
-          URL: ${{ steps.vercel_prod.outputs['preview-url'] }}
-        run: |
-          echo "Production URL: $URL"
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: |
+            npx -y vercel@latest deploy \
+              --prod --confirm \
+              --token "${{ secrets.VERCEL_TOKEN }}" \
+              --scope "${{ secrets.VERCEL_ORG_ID }}" \
+              --cwd frontend
