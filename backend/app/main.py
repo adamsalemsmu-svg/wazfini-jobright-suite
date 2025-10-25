@@ -147,7 +147,7 @@ class Token(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
-    name: str = ""
+    name: Optional[str] = ""
 
     class Config:
         from_attributes = True
