@@ -12,7 +12,9 @@ async def ingest_once():
                 exists = await db.execute(select(Job).where(
                     Job.title==j["title"], Job.company==j["company"], Job.apply_url==j["apply_url"]
                 ))
-                if exists.scalars().first(): continue
+               if exists.scalars().first():
+                    continue
+
                 db.add(Job(**j))
         await db.commit()
 
