@@ -51,6 +51,24 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 logger = logging.getLogger(__name__)
 
 
+def _safe_audit(
+    *,
+    db: Session,
+    event_type: str,
+    user_id: int | None = None,
+    details: Dict[str, object] | None = None,
+) -> None:
+    try:
+        record_audit_event(
+            db,
+            event_type=event_type,
+            user_id=user_id,
+            details=details,
+        )
+    except Exception:  # pragma: no cover - audit is best-effort
+        logger.exception("Failed to record audit event", extra={"event_type": event_type})
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -92,8 +110,8 @@ async def login(
         locked = False
 
     if locked:
-        record_audit_event(
-            db,
+        _safe_audit(
+            db=db,
             event_type="auth.login.locked",
             details={"ip": anonymize(ip_address), "email": anonymize(payload.email)},
         )
@@ -106,8 +124,8 @@ async def login(
         except Exception:  # pragma: no cover - defensive guard
             logger.exception("Login guard failure tracking failed")
             attempts = guard.limit
-        record_audit_event(
-            db,
+        _safe_audit(
+            db=db,
             event_type="auth.login.failure",
             user_id=user.id if user else None,
             details={
@@ -123,8 +141,8 @@ async def login(
         )
 
     await guard.clear_attempts(ip_address, payload.email)
-    record_audit_event(
-        db,
+    _safe_audit(
+        db=db,
         event_type="auth.login.success",
         user_id=user.id,
         details={"ip": anonymize(ip_address)},
