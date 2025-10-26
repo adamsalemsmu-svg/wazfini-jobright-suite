@@ -85,8 +85,69 @@ jobs:
           name: coverage-${{ github.run_id }}
           path: coverage.xml
 
-      - name: Notify Slack
+      - name: Notify Slack (detailed CI summary)
+        id: slack_notify
         run: |
-          curl -X POST -H "Content-Type: application/json" \
-          -d "{\"text\": \"✅ Coverage: ${{ steps.cov.outputs.coverage }}% for main branch.\"}" \
-          ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          COVERAGE=${{ steps.cov.outputs.coverage }}
+          DEPLOY_URL=${{ secrets.RENDER_BACKEND_URL }}
+          JOB="${{ github.workflow }}"
+          STATUS="${{ job.status }}"
+          REPO="${{ github.repository }}"
+
+          # Determine color and emoji based on job result
+          if [ "$STATUS" = "success" ]; then
+            COLOR="#36a64f"
+            EMOJI=":white_check_mark:"
+          else
+            COLOR="#ff4d4d"
+            EMOJI=":x:"
+          fi
+
+          # Load last coverage if file exists (simple trend memory)
+          mkdir -p metrics
+          LASTCOV=$(cat metrics/lastcov.txt 2>/dev/null || echo "0")
+          echo "$COVERAGE" > metrics/lastcov.txt
+
+          # Determine trend arrow
+          TREND=":arrow_right:"
+          if (( $(echo "$COVERAGE > $LASTCOV" | bc -l) )); then
+            TREND=":arrow_up_small:"
+          elif (( $(echo "$COVERAGE < $LASTCOV" | bc -l) )); then
+            TREND=":arrow_down_small:"
+          fi
+
+          # Build message payload
+          payload=$(jq -n \
+            --arg emoji "$EMOJI" \
+            --arg repo "$REPO" \
+            --arg run_url "$GITHUB_RUN_URL" \
+            --arg cov "$COVERAGE" \
+            --arg last "$LASTCOV" \
+            --arg trend "$TREND" \
+            --arg color "$COLOR" \
+            --arg job "$JOB" \
+            --arg deploy "$DEPLOY_URL" \
+            '{
+              "username": "Wazifni CI Bot",
+              "icon_emoji": ":robot_face:",
+              "attachments": [
+                {
+                  "color": $color,
+                  "title": "\($emoji) CI Summary — \($repo)",
+                  "title_link": $run_url,
+                  "fields": [
+                    {"title": "Workflow", "value": $job, "short": true},
+                    {"title": "Coverage", "value": "\($cov)%  \($trend)", "short": true},
+                    {"title": "Last Coverage", "value": "\($last)%", "short": true},
+                    {"title": "Deploy", "value": $deploy, "short": false}
+                  ],
+                  "footer": "GitHub Actions • $(date -u +'%Y-%m-%d %H:%M UTC')",
+                  "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                }
+              ]
+            }')
+
+          curl -X POST -H "Content-type: application/json" \
+            --data "$payload" \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
