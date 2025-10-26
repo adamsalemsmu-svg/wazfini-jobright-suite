@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, NoReturn
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -88,6 +88,39 @@ def _lockout_exception(retry_after_seconds: int) -> HTTPException:
     )
 
 
+async def _handle_invalid_login(
+    *,
+    guard: LoginGuard,
+    db: Session,
+    ip_address: str,
+    email: str,
+    user: User | None,
+) -> NoReturn:
+    try:
+        attempts = await guard.register_failure(ip_address, email)
+    except Exception:  # pragma: no cover - defensive guard
+        logger.exception("Login guard failure tracking failed")
+        attempts = guard.limit
+
+    _safe_audit(
+        db=db,
+        event_type="auth.login.failure",
+        user_id=user.id if user else None,
+        details={
+            "ip": anonymize(ip_address),
+            "email": anonymize(email),
+            "attempts": attempts,
+        },
+    )
+
+    if attempts > guard.limit:
+        raise _lockout_exception(int(guard.retry_after.total_seconds()))
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+    )
+
+
 @router.post(
     "/login",
     response_model=TokenPair,
@@ -119,7 +152,19 @@ async def login(
         )
         raise _lockout_exception(int(guard.retry_after.total_seconds()))
 
-    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    try:
+        user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    except Exception:
+        logger.exception("Login query failed")
+        await _handle_invalid_login(
+            guard=guard,
+            db=db,
+            ip_address=ip_address,
+            email=payload.email,
+            user=None,
+        )
+        raise  # pragma: no cover - unreachable, kept for type checkers
+
     credentials_valid = False
     if user is not None:
         try:
@@ -135,25 +180,12 @@ async def login(
             )
 
     if user is None or not credentials_valid:
-        try:
-            attempts = await guard.register_failure(ip_address, payload.email)
-        except Exception:  # pragma: no cover - defensive guard
-            logger.exception("Login guard failure tracking failed")
-            attempts = guard.limit
-        _safe_audit(
+        await _handle_invalid_login(
+            guard=guard,
             db=db,
-            event_type="auth.login.failure",
-            user_id=user.id if user else None,
-            details={
-                "ip": anonymize(ip_address),
-                "email": anonymize(payload.email),
-                "attempts": attempts,
-            },
-        )
-        if attempts > guard.limit:
-            raise _lockout_exception(int(guard.retry_after.total_seconds()))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+            ip_address=ip_address,
+            email=payload.email,
+            user=user,
         )
 
     await guard.clear_attempts(ip_address, payload.email)
