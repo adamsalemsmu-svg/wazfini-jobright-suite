@@ -66,11 +66,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install pytest-cov
-        run: pip install pytest pytest-cov
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
 
       - name: Run coverage
-        run: pytest --cov=app --cov-report=xml
+        env:
+          PYTHONPATH: backend
+        run: pytest tests --cov=app --cov-report=xml
 
       - name: Extract coverage metric
         id: cov
