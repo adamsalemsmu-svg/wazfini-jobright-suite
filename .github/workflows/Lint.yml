@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -25,3 +28,14 @@ jobs:
         run: |
           pre-commit install-hooks
           pre-commit run --all-files
+      - name: Commit formatted files (if any)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "ci: apply ruff formatting [skip ci]"
+            git push
+          else
+            echo "No formatting changes"
+          fi
