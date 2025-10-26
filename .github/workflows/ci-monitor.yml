@@ -1,0 +1,92 @@
+name: CI Monitor & Smoke Tests
+
+on:
+  workflow_run:
+    workflows: ["backend-ci"]
+    types:
+      - completed
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * *"  # daily health check 9AM UTC
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Evaluate previous CI run
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: |
+          echo "❌ Previous CI failed — notifying maintainer"
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"text":"🚨 CI failed for Wazifni main — check GitHub Actions"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: monitor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run remote smoke test
+        env:
+          BASE_URL: ${{ secrets.RENDER_BACKEND_URL }}
+        run: |
+          echo "Running smoke test against $BASE_URL"
+          bash scripts/smoke.sh
+
+      - name: Notify result
+        if: ${{ failure() }}
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"text":"🚨 Smoke test failed on Render after deploy"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  coverage-trend:
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest-cov
+        run: pip install pytest pytest-cov
+
+      - name: Run coverage
+        run: pytest --cov=app --cov-report=xml
+
+      - name: Extract coverage metric
+        id: cov
+        run: |
+          cov=$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/[^0-9.]//g')
+          echo "coverage=$cov" >> $GITHUB_OUTPUT
+          echo "Current coverage: $cov"
+
+      - name: Save coverage trend
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage.xml
+
+      - name: Notify Slack
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d "{\"text\": \"✅ Coverage: ${{ steps.cov.outputs.coverage }}% for main branch.\"}" \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
