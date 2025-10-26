@@ -19,8 +19,9 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/test_db
-      PSQL_DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/test_db?sslmode=disable
+      PSQL_DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db?sslmode=disable
+      PGSSLMODE: disable
 
     steps:
       - uses: actions/checkout@v4
