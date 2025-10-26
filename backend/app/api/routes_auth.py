@@ -10,6 +10,8 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import logging
+
 from ..core.cache import get_redis
 from ..core.config import settings
 from ..core.security import (
@@ -46,6 +48,9 @@ from .deps import get_current_user, require_db
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
+logger = logging.getLogger(__name__)
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -80,7 +85,13 @@ async def login(
     ip_address = _client_ip(request)
     guard = LoginGuard(redis)
 
-    if await guard.is_locked(ip_address, payload.email):
+    try:
+        locked = await guard.is_locked(ip_address, payload.email)
+    except Exception:  # pragma: no cover - defensive guard
+        logger.exception("Login guard lock check failed; continuing without lockout")
+        locked = False
+
+    if locked:
         record_audit_event(
             db,
             event_type="auth.login.locked",
@@ -90,7 +101,11 @@ async def login(
 
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if user is None or not verify_password(payload.password, user.password_hash):
-        attempts = await guard.register_failure(ip_address, payload.email)
+        try:
+            attempts = await guard.register_failure(ip_address, payload.email)
+        except Exception:  # pragma: no cover - defensive guard
+            logger.exception("Login guard failure tracking failed")
+            attempts = guard.limit
         record_audit_event(
             db,
             event_type="auth.login.failure",
@@ -114,7 +129,10 @@ async def login(
         user_id=user.id,
         details={"ip": anonymize(ip_address)},
     )
-
+    try:
+        await guard.clear_attempts(ip_address, payload.email)
+    except Exception:  # pragma: no cover - defensive guard
+        logger.exception("Login guard cleanup failed")
     access = create_access_token(str(user.id))
     refresh = create_refresh_token(str(user.id))
     refresh_exp = datetime.fromtimestamp(refresh["claims"]["exp"], tz=timezone.utc)
