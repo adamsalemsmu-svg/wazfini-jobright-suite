@@ -120,7 +120,21 @@ async def login(
         raise _lockout_exception(int(guard.retry_after.total_seconds()))
 
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
-    if user is None or not verify_password(payload.password, user.password_hash):
+    credentials_valid = False
+    if user is not None:
+        try:
+            credentials_valid = verify_password(payload.password, user.password_hash)
+        except Exception:
+            # Gracefully handle unexpected verifier errors as auth failures.
+            logger.exception(
+                "Password verification failed",
+                extra={
+                    "ip": anonymize(ip_address),
+                    "email": anonymize(payload.email),
+                },
+            )
+
+    if user is None or not credentials_valid:
         try:
             attempts = await guard.register_failure(ip_address, payload.email)
         except Exception:  # pragma: no cover - defensive guard
