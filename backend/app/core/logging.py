@@ -4,6 +4,7 @@ import contextvars
 import logging
 import sys
 import uuid
+from typing import Any
 
 from pythonjsonlogger import jsonlogger
 
@@ -24,6 +25,22 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+def _resolve_level(raw_level: Any) -> int:
+    """Return a valid logging level for arbitrary input."""
+    if isinstance(raw_level, int):
+        return raw_level
+    if isinstance(raw_level, str):
+        name = raw_level.upper()
+        level = getattr(logging, name, None)
+        if isinstance(level, int):
+            return level
+        try:
+            return int(raw_level)
+        except (TypeError, ValueError):
+            pass
+    return logging.INFO
+
+
 def configure_logging() -> None:
     formatter = jsonlogger.JsonFormatter(  # type: ignore[attr-defined]
         fmt="%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s",
@@ -33,7 +50,9 @@ def configure_logging() -> None:
     handler.setFormatter(formatter)
     handler.addFilter(RequestIdFilter())
 
-    logging.basicConfig(level=settings.LOG_LEVEL, handlers=[handler], force=True)
+    logging.basicConfig(
+        level=_resolve_level(settings.LOG_LEVEL), handlers=[handler], force=True
+    )
     logging.getLogger("uvicorn.access").handlers = []
 
 
