@@ -103,7 +103,9 @@ async def login(
         )
         if attempts > guard.limit:
             raise _lockout_exception(int(guard.retry_after.total_seconds()))
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
 
     await guard.clear_attempts(ip_address, payload.email)
     record_audit_event(
@@ -136,12 +138,16 @@ async def refresh(
     try:
         decoded = decode_token(payload.refresh_token)
     except InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
 
     token_type = decoded.get("type")
     subject = decoded.get("sub")
     if token_type != "refresh" or subject is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
 
     user_id = int(subject)
     jti = decoded["jti"]
@@ -154,17 +160,25 @@ async def refresh(
             user_id=user_id,
             details={"jti": jti},
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token reuse detected")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token reuse detected"
+        )
 
     if not await refresh_token_is_active(redis, user_id=user_id, jti=jti):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired"
+        )
 
     expires_at = datetime.fromtimestamp(decoded["exp"], tz=timezone.utc)
-    await mark_refresh_token_revoked(redis, user_id=user_id, jti=jti, expires_at=expires_at)
+    await mark_refresh_token_revoked(
+        redis, user_id=user_id, jti=jti, expires_at=expires_at
+    )
 
     new_access = create_access_token(str(user_id))
     new_refresh = create_refresh_token(str(user_id))
-    new_refresh_exp = datetime.fromtimestamp(new_refresh["claims"]["exp"], tz=timezone.utc)
+    new_refresh_exp = datetime.fromtimestamp(
+        new_refresh["claims"]["exp"], tz=timezone.utc
+    )
 
     await store_refresh_token(
         redis,
@@ -174,7 +188,9 @@ async def refresh(
     )
 
     record_audit_event(db, event_type="auth.refresh.success", user_id=user_id)
-    return TokenPair(access_token=new_access["token"], refresh_token=new_refresh["token"])
+    return TokenPair(
+        access_token=new_access["token"], refresh_token=new_refresh["token"]
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -190,17 +206,23 @@ async def logout(
         return
 
     if not payload.refresh_token:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refresh token required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Refresh token required"
+        )
 
     try:
         decoded = decode_token(payload.refresh_token)
     except InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
+        )
 
     token_type = decoded.get("type")
     subject = decoded.get("sub")
     if token_type != "refresh" or subject is None or int(subject) != current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid refresh token"
+        )
 
     expires_at = datetime.fromtimestamp(decoded["exp"], tz=timezone.utc)
     await mark_refresh_token_revoked(
@@ -269,7 +291,9 @@ async def password_reset_confirm(
     key = f"pwdreset:{payload.token}"
     raw = await redis.getdel(key)
     if raw is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
 
     data: Dict[str, str] = json.loads(raw)
     user_id = int(data["user_id"])
@@ -277,7 +301,9 @@ async def password_reset_confirm(
     validate_password_strength(payload.new_password)
     user = db.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
 
     user.password_hash = hash_password(payload.new_password)
     db.add(user)

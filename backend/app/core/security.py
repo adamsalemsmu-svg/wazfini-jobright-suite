@@ -34,7 +34,14 @@ def validate_password_strength(password: str) -> None:
         return
     if len(password) < settings.PASSWORD_MIN_LENGTH:
         raise ValueError("Password does not meet minimum length requirement.")
-    score = sum((any(c.islower() for c in password), any(c.isupper() for c in password), any(c.isdigit() for c in password), any(not c.isalnum() for c in password)))
+    score = sum(
+        (
+            any(c.islower() for c in password),
+            any(c.isupper() for c in password),
+            any(c.isdigit() for c in password),
+            any(not c.isalnum() for c in password),
+        )
+    )
     if score < 3:
         raise ValueError("Password must include a mix of character types.")
 
@@ -67,7 +74,9 @@ def create_refresh_token(subject: str) -> Dict[str, Any]:
 
 def decode_token(token: str) -> Dict[str, Any]:
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
     except JWTError as exc:
         raise InvalidTokenError(str(exc)) from exc
 

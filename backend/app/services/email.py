@@ -49,7 +49,9 @@ async def send_password_reset_email(*, recipient: str, token: str) -> None:
 
     try:
         await asyncio.to_thread(_send)
-        _logger.info("password_reset_email_sent", extra={"recipient": anonymized_recipient})
+        _logger.info(
+            "password_reset_email_sent", extra={"recipient": anonymized_recipient}
+        )
     except Exception as exc:  # pragma: no cover - log and continue
         _logger.warning(
             "password_reset_email_failed",

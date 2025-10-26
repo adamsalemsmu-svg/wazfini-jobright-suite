@@ -22,5 +22,8 @@ def record_audit_event(
     db.add(event)
     db.commit()
     db.refresh(event)
-    _logger.info("audit_event", extra={"event_type": event_type, "user_id": user_id, "details": payload})
+    _logger.info(
+        "audit_event",
+        extra={"event_type": event_type, "user_id": user_id, "details": payload},
+    )
     return event

@@ -41,8 +41,12 @@ def test_password_reset_flow(client: TestClient, create_user, redis_client) -> N
     )
     assert reuse_resp.status_code == 400
 
-    old_login = client.post("/auth/login", json={"email": email, "password": old_password})
+    old_login = client.post(
+        "/auth/login", json={"email": email, "password": old_password}
+    )
     assert old_login.status_code == 401
 
-    new_login = client.post("/auth/login", json={"email": email, "password": new_password})
+    new_login = client.post(
+        "/auth/login", json={"email": email, "password": new_password}
+    )
     assert new_login.status_code == 200
