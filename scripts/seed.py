@@ -27,17 +27,13 @@ def seed_demo_user(session: Session) -> None:
     existing = session.query(User).filter(User.email == DEMO_EMAIL).first()
     if existing:
         if verify_password(DEMO_PASSWORD, existing.password_hash):
-            LOGGER.info(
-                "Demo user already present", extra={"user_id": existing.id}
-            )
+            LOGGER.info("Demo user already present", extra={"user_id": existing.id})
             return
 
         existing.password_hash = hash_password(DEMO_PASSWORD)
         session.add(existing)
         session.commit()
-        LOGGER.info(
-            "Demo user password reset", extra={"user_id": existing.id}
-        )
+        LOGGER.info("Demo user password reset", extra={"user_id": existing.id})
         return
 
     user = User(
