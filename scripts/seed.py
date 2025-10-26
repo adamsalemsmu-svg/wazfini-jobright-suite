@@ -13,7 +13,7 @@ if str(BACKEND_PATH) not in sys.path:
     sys.path.insert(0, str(BACKEND_PATH))
 
 from app.core.db import Base, SessionLocal, engine
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models import User
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +26,18 @@ DEMO_PASSWORD = "ChangeMe!2024"
 def seed_demo_user(session: Session) -> None:
     existing = session.query(User).filter(User.email == DEMO_EMAIL).first()
     if existing:
-        LOGGER.info("Demo user already present", extra={"user_id": existing.id})
+        if verify_password(DEMO_PASSWORD, existing.password_hash):
+            LOGGER.info(
+                "Demo user already present", extra={"user_id": existing.id}
+            )
+            return
+
+        existing.password_hash = hash_password(DEMO_PASSWORD)
+        session.add(existing)
+        session.commit()
+        LOGGER.info(
+            "Demo user password reset", extra={"user_id": existing.id}
+        )
         return
 
     user = User(
