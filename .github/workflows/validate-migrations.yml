@@ -1,0 +1,51 @@
+name: Validate Alembic and Seed
+on: [push, pull_request]
+
+jobs:
+  alembic-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/test_db
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run Alembic migrations
+        working-directory: backend
+        run: |
+          export PYTHONPATH=.
+          alembic upgrade head
+
+      - name: Seed test database
+        working-directory: backend
+        run: |
+          export PYTHONPATH=.
+          python scripts/seed.py
+          psql $DATABASE_URL -c "\d users"
+
+      - name: Validate migration integrity
+        working-directory: backend
+        run: |
+          export PYTHONPATH=.
+          alembic check
