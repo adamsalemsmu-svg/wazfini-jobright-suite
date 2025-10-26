@@ -1,6 +1,7 @@
 # --- Web ---
 sqlalchemy>=2.0
 psycopg[binary]>=3.2
+psycopg2-binary
 uvicorn[standard]>=0.30
 fastapi>=0.115
 python-dotenv>=1.0
