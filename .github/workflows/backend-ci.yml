@@ -46,12 +46,13 @@ jobs:
             echo "flake8 not installed"
           fi
 
-      - name: Run tests (if pytest installed)
+      - name: Run tests with coverage
         env:
-          DATABASE_URL: sqlite+aiosqlite:///./test.db
+          DATABASE_URL: sqlite:///./test.db
+          REDIS_URL: redis://localhost:6379/0
         run: |
           if python -m pip show pytest > /dev/null 2>&1; then
-            pytest -q || true
+            pytest --cov=app --cov-report=xml --cov-report=term --cov-fail-under=65
           else
             echo "pytest not installed"
           fi

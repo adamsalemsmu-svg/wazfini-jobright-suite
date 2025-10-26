@@ -13,6 +13,9 @@ frontend/node_modules/
 __pycache__/
 *.pyc
 
+# Databases
+*.db
+
 # OS junk
 .DS_Store
 Thumbs.db
