@@ -66,7 +66,9 @@ def _safe_audit(
             details=details,
         )
     except Exception:  # pragma: no cover - audit is best-effort
-        logger.exception("Failed to record audit event", extra={"event_type": event_type})
+        logger.exception(
+            "Failed to record audit event", extra={"event_type": event_type}
+        )
 
 
 def _client_ip(request: Request) -> str:
