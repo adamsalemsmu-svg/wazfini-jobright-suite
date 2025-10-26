@@ -1,13 +1,6 @@
+from logging.config import fileConfig
 import sys
 from pathlib import Path
-
-# Add the project's backend directory to the Python path.
-# This allows alembic to find the 'app' module.
-backend_dir = Path(__file__).resolve().parents[1]
-if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
-
-from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -15,6 +8,12 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import settings
 from app.core.db import Base
 from app import models  # noqa: F401  # Ensure models are imported for metadata
+
+# Add the project's backend directory to the Python path.
+# This allows alembic to find the 'app' module.
+backend_dir = Path(__file__).resolve().parents[1]
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
