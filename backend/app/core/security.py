@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+import logging
 from typing import Any, Dict
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from passlib.context import CryptContext
 
 from .config import settings
 
+logger = logging.getLogger(__name__)
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -21,10 +23,18 @@ def hash_password(password: str) -> str:
     return _pwd_context.hash(password)
 
 
-def verify_password(password: str, hashed: str) -> bool:
+def verify_password(password: str, hashed: str | None) -> bool:
     try:
+        if not hashed:
+            return False
         return _pwd_context.verify(password, hashed)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Password verification error: %s",
+            exc,
+            exc_info=True,
+            extra={"event": "verify_password_failure"},
+        )
         return False
 
 
