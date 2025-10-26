@@ -1,5 +1,8 @@
 name: Lint
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: ["**"]
@@ -35,8 +38,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ -n "$(git status --porcelain)" ]; then
             git add -A
-            git commit -m "ci: apply ruff formatting [skip ci]"
-            git push
+            git commit -m "ci: apply ruff formatting [skip ci]" || echo "No commit made"
+            BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+            REPO="${{ github.repository }}"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git" "$BRANCH"
           else
             echo "No formatting changes"
           fi
