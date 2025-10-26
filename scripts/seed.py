@@ -1,15 +1,16 @@
+# ruff: noqa: E402
 from __future__ import annotations
 
 import logging
 import sys
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_PATH = ROOT / "backend"
 if str(BACKEND_PATH) not in sys.path:
     sys.path.insert(0, str(BACKEND_PATH))
-
-from sqlalchemy.orm import Session
 
 from app.core.db import Base, SessionLocal, engine
 from app.core.security import hash_password
