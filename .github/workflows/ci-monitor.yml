@@ -37,8 +37,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
 
       - name: Run remote smoke test
         env:
