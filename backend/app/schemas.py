@@ -1,76 +1,70 @@
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from .models import ApplicationStatus
 
 
-class ExperienceIn(BaseModel):
-    company: str
-    title: str
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    description: Optional[str] = None
+class TokenPair(BaseModel):
+    access_token: str = Field(examples=["eyJhbGciOiJI..."])
+    refresh_token: str = Field(examples=["eyJhbGciOiJI..."])
+    token_type: str = Field(default="bearer")
 
 
-class EducationIn(BaseModel):
-    school: str
-    degree: Optional[str] = None
-    gpa: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+class LoginRequest(BaseModel):
+    email: EmailStr = Field(examples=["user@example.com"])
+    password: str = Field(examples=["StrongPass!123"])
 
 
-class ProfileIn(BaseModel):
-    user_email: str
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    linkedin: Optional[str] = None
-    github: Optional[str] = None
-    summary: Optional[str] = None
-    experiences: List[ExperienceIn] = []
-    educations: List[EducationIn] = []
-    skills: List[str] = []
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(examples=["eyJhbGciOiJI..."])
 
 
-class JobOut(BaseModel):
+class LogoutRequest(BaseModel):
+    refresh_token: Optional[str] = Field(default=None, examples=["eyJhbGciOiJI..."])
+    logout_all: bool = Field(default=False, examples=[False])
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr = Field(examples=["user@example.com"])
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(examples=["reset-token"])
+    new_password: str = Field(examples=["NewStrongPass!123"])
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
+    email: EmailStr
+    full_name: Optional[str] = None
+    locale: str
+    time_zone: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ApplicationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
     title: str
     company: str
-    location: str
-    salary_low: Optional[int]
-    salary_high: Optional[int]
-    currency: str
-    job_type: Optional[str]
-    experience_level: Optional[str]
-    industry: Optional[str]
-    education_level: Optional[str]
-    work_mode: Optional[str]
-    posted_date: Optional[datetime]
-    apply_url: Optional[str]
-    description: Optional[str]
-    source: Optional[str]
+    status: ApplicationStatus
+    source: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
 
-class JobFilters(BaseModel):
-    location: Optional[str] = None
-    industry: Optional[str] = None
-    experience_level: Optional[str] = None
-    job_type: Optional[str] = None
-    salary_min: Optional[int] = None
-    salary_max: Optional[int] = None
-    education_level: Optional[str] = None
-    visa_status: Optional[str] = None
-    work_mode: Optional[str] = None
-    posted_within_days: Optional[int] = None
-    company_size: Optional[str] = None
-    q: Optional[str] = None
+class AuditEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-
-class ChatIn(BaseModel):
-    message: str
-    profile_id: Optional[int] = None
-    job_id: Optional[int] = None
-
-
-class ChatOut(BaseModel):
-    reply: str
+    id: int
+    user_id: Optional[int] = None
+    event_type: str
+    details: Dict[str, Any]
+    created_at: datetime

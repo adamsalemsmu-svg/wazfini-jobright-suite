@@ -1,28 +1,39 @@
 # backend/app/core/db.py
-import os
+from __future__ import annotations
+
+from typing import Iterator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
+from .config import settings
 
-# Ensure sslmode=require is present for Render Postgres
-if DATABASE_URL.startswith("postgresql") and "sslmode=" not in DATABASE_URL:
-    sep = "&" if "?" in DATABASE_URL else "?"
-    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _build_engine_url(raw: str) -> str:
+    if raw.startswith("postgresql") and "sslmode=" not in raw:
+        sep = "&" if "?" in raw else "?"
+        return f"{raw}{sep}sslmode=require"
+    return raw
+
+
+raw_url = settings.DATABASE_URL
+connect_args = {"check_same_thread": False} if raw_url.startswith("sqlite") or raw_url.startswith("sqlite+") else {}
 
 engine = create_engine(
-    DATABASE_URL,
+    _build_engine_url(raw_url),
     future=True,
     pool_pre_ping=True,
+    connect_args=connect_args,
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-Base = declarative_base()
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, class_=Session)
 
 
-def get_db():
+def get_db() -> Iterator[Session]:
     db = SessionLocal()
     try:
         yield db
