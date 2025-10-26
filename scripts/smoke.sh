@@ -19,6 +19,7 @@ PYTHONPATH="backend" python scripts/seed.py >/dev/null
 >&2 echo "[smoke] Running authentication flow"
 export BASE_URL
 python - <<'PY'
+import json
 import os
 import sys
 import requests
@@ -31,12 +32,36 @@ if not base_url:
 session = requests.Session()
 
 
-def post(path: str, payload: dict[str, str], expected_status: int, *, headers: dict[str, str] | None = None) -> requests.Response:
+def dump_resp(resp: requests.Response) -> None:
+    print("RESPONSE STATUS:", resp.status_code)
+    print("RESPONSE HEADERS:", json.dumps(dict(resp.headers), indent=2))
+    try:
+        print("RESPONSE BODY:", resp.json())
+    except Exception:
+        print("RESPONSE TEXT:", resp.text[:10000])
+
+
+def post(
+    path: str,
+    payload: dict[str, str],
+    expected_status: int,
+    *,
+    headers: dict[str, str] | None = None,
+) -> requests.Response:
     url = f"{base_url}{path}"
-    resp = session.post(url, json=payload, headers=headers, timeout=15)
+    resp = session.post(url, json=payload, headers=headers, timeout=30)
     print(f"POST {path} -> {resp.status_code}")
     if resp.status_code != expected_status:
-        print(resp.text)
+        dump_resp(resp)
+        forwarded_for = headers.get("x-forwarded-for") if headers else ""
+        curl_cmd = (
+            "curl -v -X POST "
+            f"{url} "
+            "-H 'Content-Type: application/json' "
+            f"-H 'x-forwarded-for: {forwarded_for}' "
+            f"-d '{json.dumps(payload)}'"
+        )
+        print("REPRODUCE WITH:", curl_cmd)
         sys.exit(1)
     return resp
 

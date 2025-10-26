@@ -90,6 +90,9 @@ jobs:
       - name: Notify Slack (detailed CI summary)
         id: slack_notify
         run: |
+          # safer shell settings for early failure detection
+          set -euo pipefail
+
           GITHUB_RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           COVERAGE=${{ steps.cov.outputs.coverage }}
           DEPLOY_URL=${{ secrets.RENDER_BACKEND_URL }}
@@ -97,7 +100,6 @@ jobs:
           STATUS="${{ job.status }}"
           REPO="${{ github.repository }}"
 
-          # Determine color and emoji based on job result
           if [ "$STATUS" = "success" ]; then
             COLOR="#36a64f"
             EMOJI=":white_check_mark:"
@@ -106,12 +108,10 @@ jobs:
             EMOJI=":x:"
           fi
 
-          # Load last coverage if file exists (simple trend memory)
           mkdir -p metrics
           LASTCOV=$(cat metrics/lastcov.txt 2>/dev/null || echo "0")
           echo "$COVERAGE" > metrics/lastcov.txt
 
-          # Determine trend arrow
           TREND=":arrow_right:"
           if (( $(echo "$COVERAGE > $LASTCOV" | bc -l) )); then
             TREND=":arrow_up_small:"
@@ -119,7 +119,9 @@ jobs:
             TREND=":arrow_down_small:"
           fi
 
-          # Build message payload
+          # Compute timestamp in shell and pass into jq via --arg to avoid quoting issues
+          DATE="$(date -u +'%Y-%m-%d %H:%M UTC')"
+
           payload=$(jq -n \
             --arg emoji "$EMOJI" \
             --arg repo "$REPO" \
@@ -130,6 +132,7 @@ jobs:
             --arg color "$COLOR" \
             --arg job "$JOB" \
             --arg deploy "$DEPLOY_URL" \
+            --arg footer "$DATE" \
             '{
               "username": "Wazifni CI Bot",
               "icon_emoji": ":robot_face:",
@@ -144,7 +147,7 @@ jobs:
                     {"title": "Last Coverage", "value": "\($last)%", "short": true},
                     {"title": "Deploy", "value": $deploy, "short": false}
                   ],
-                  "footer": "GitHub Actions • $(date -u +'%Y-%m-%d %H:%M UTC')",
+                  "footer": $footer,
                   "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
                 }
               ]
