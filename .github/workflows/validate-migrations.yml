@@ -42,7 +42,7 @@ jobs:
         working-directory: backend
         run: |
           export PYTHONPATH=.
-          python scripts/seed.py
+          python ../scripts/seed.py
           psql "$PSQL_DATABASE_URL" -c "\d users"
 
       - name: Validate migration integrity
