@@ -34,6 +34,8 @@ jobs:
       JWT_ALG: HS256
       LOG_LEVEL: "INFO"
       APP_ENV: ci
+      SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+      SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +51,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
+
+      - name: Validate smoke credentials
+        run: |
+          if [ -z "${SMOKE_USER_EMAIL:-}" ] || [ -z "${SMOKE_USER_PASSWORD:-}" ]; then
+            echo "ERROR: SMOKE_USER_EMAIL and SMOKE_USER_PASSWORD must be provided as repository secrets"
+            exit 1
+          fi
 
       - name: Run Alembic migrations
         working-directory: backend
@@ -78,6 +87,8 @@ jobs:
       - name: Run smoke tests
         env:
           BASE_URL: http://127.0.0.1:8000
+          SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+          SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
         run: |
           ./scripts/smoke.sh
 
