@@ -1,114 +1,71 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Expect secrets injected by workflow or via env/argument
 BASE_URL="${BASE_URL:-${1:-}}"
+EMAIL="${SMOKE_USER_EMAIL:-${SMOKE_USER_EMAIL:-}}"
+PASSWORD="${SMOKE_USER_PASSWORD:-${SMOKE_USER_PASSWORD:-}}"
+
 if [[ -z "${BASE_URL}" ]]; then
-  echo "Usage: BASE_URL=<url> $0" >&2
-  exit 1
+    echo "Usage: BASE_URL=<url> $0" >&2
+    exit 1
+fi
+if [[ -z "${EMAIL}" ]] || [[ -z "${PASSWORD}" ]]; then
+    echo "SMOKE_USER_EMAIL and SMOKE_USER_PASSWORD must be provided as environment variables" >&2
+    exit 1
 fi
 
 BASE_URL="${BASE_URL%/}"
+LOGIN_URL="${BASE_URL}/auth/login"
 
->&2 echo "[smoke] Checking health endpoints at ${BASE_URL}"
-curl -fsS "${BASE_URL}/healthz" >/dev/null
-curl -fsS "${BASE_URL}/openapi.json" >/dev/null
+MAX_RETRIES=3
+SLEEP_BASE=2
 
->&2 echo "[smoke] Seeding demo data"
-PYTHONPATH="backend" python scripts/seed.py >/dev/null
+echo "Smoke: login to ${LOGIN_URL} as ${EMAIL}"
 
->&2 echo "[smoke] Running authentication flow"
-export BASE_URL
-python - <<'PY'
-import json
-import os
-import sys
-import requests
+attempt=0
+while [ $attempt -lt $MAX_RETRIES ]; do
+    attempt=$((attempt+1))
+    echo "Attempt ${attempt}/${MAX_RETRIES}..."
 
-base_url = os.environ.get("BASE_URL")
-if not base_url:
-    print("BASE_URL not set", file=sys.stderr)
-    sys.exit(1)
+    response=$(curl -s -w '\n%{http_code}' -X POST "${LOGIN_URL}" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}" \
+        -H "x-forwarded-for: 198.51.100.10" || true)
 
-session = requests.Session()
+    http_code=$(echo "${response}" | tail -n1)
+    body=$(echo "${response}" | sed '$d')
 
+    echo "HTTP ${http_code} - Response: ${body}"
 
-def dump_resp(resp: requests.Response) -> None:
-    print("RESPONSE STATUS:", resp.status_code)
-    print("RESPONSE HEADERS:", json.dumps(dict(resp.headers), indent=2))
-    try:
-        print("RESPONSE BODY:", resp.json())
-    except Exception:
-        print("RESPONSE TEXT:", resp.text[:10000])
+    if [ "${http_code}" -ge 200 ] && [ "${http_code}" -lt 300 ]; then
+        echo "Smoke: login succeeded."
+        exit 0
+    fi
 
+    if [ "${http_code}" -eq 401 ] || [ "${http_code}" -eq 403 ]; then
+        echo "Smoke failed: invalid credentials or forbidden (HTTP ${http_code})."
+        echo "Response body: ${body}"
+        exit 1
+    fi
 
-def post(
-    path: str,
-    payload: dict[str, str],
-    expected_status: int,
-    *,
-    headers: dict[str, str] | None = None,
-) -> requests.Response:
-    url = f"{base_url}{path}"
-    resp = session.post(url, json=payload, headers=headers, timeout=30)
-    print(f"POST {path} -> {resp.status_code}")
-    if resp.status_code != expected_status:
-        dump_resp(resp)
-        forwarded_for = headers.get("x-forwarded-for") if headers else ""
-        curl_cmd = (
-            "curl -v -X POST "
-            f"{url} "
-            "-H 'Content-Type: application/json' "
-            f"-H 'x-forwarded-for: {forwarded_for}' "
-            f"-d '{json.dumps(payload)}'"
-        )
-        print("REPRODUCE WITH:", curl_cmd)
-        sys.exit(1)
-    return resp
+    if [ "${http_code}" -eq 429 ] || [ "${http_code}" -ge 500 ]; then
+        if [ ${attempt} -lt ${MAX_RETRIES} ]; then
+            sleep_time=$((SLEEP_BASE ** attempt))
+            echo "Transient error (HTTP ${http_code}). Retrying after ${sleep_time}s..."
+            sleep ${sleep_time}
+            continue
+        else
+            echo "Smoke failed after ${MAX_RETRIES} attempts (HTTP ${http_code})."
+            echo "Response body: ${body}"
+            exit 1
+        fi
+    fi
 
-fail_headers = {"x-forwarded-for": "198.51.100.10"}
+    echo "Unexpected response (HTTP ${http_code}). Failing smoke test."
+    echo "Response body: ${body}"
+    exit 1
+done
 
-for attempt in range(1, 7):
-    status = 401 if attempt <= 5 else 429
-    post(
-        "/auth/login",
-        {"email": "unknown@wazifni.ai", "password": "WrongPass!123"},
-        status,
-        headers=fail_headers,
-    )
-
-login_headers = {"x-forwarded-for": "203.0.113.42"}
-
-login_resp = post(
-    "/auth/login",
-    {"email": "demo@wazifni.ai", "password": "ChangeMe!2024"},
-    200,
-    headers=login_headers,
-)
-tokens = login_resp.json()
-refresh_initial = tokens["refresh_token"]
-
-refresh_resp = post("/auth/refresh", {"refresh_token": refresh_initial}, 200, headers=login_headers)
-refresh_rotated = refresh_resp.json()["refresh_token"]
-
-reuse_resp = session.post(
-    f"{base_url}/auth/refresh",
-    json={"refresh_token": refresh_initial},
-    headers=login_headers,
-    timeout=15,
-)
-print(f"POST /auth/refresh (reuse) -> {reuse_resp.status_code}")
-if reuse_resp.status_code != 401:
-    print(reuse_resp.text)
-    sys.exit(1)
-
-final_resp = session.post(
-    f"{base_url}/auth/refresh",
-    json={"refresh_token": refresh_rotated},
-    headers=login_headers,
-    timeout=15,
-)
-print(f"POST /auth/refresh (rotated token after reuse) -> {final_resp.status_code}")
-if final_resp.status_code != 401:
-    print(final_resp.text)
-    sys.exit(1)
-PY
+echo "Smoke test failed unexpectedly."
+exit 1

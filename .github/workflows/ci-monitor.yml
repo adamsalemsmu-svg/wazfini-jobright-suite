@@ -43,6 +43,8 @@ jobs:
       - name: Run remote smoke test
         env:
           BASE_URL: ${{ secrets.RENDER_BACKEND_URL }}
+          SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+          SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
         run: |
           echo "Running smoke test against $BASE_URL"
           bash scripts/smoke.sh
