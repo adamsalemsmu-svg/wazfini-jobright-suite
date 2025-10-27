@@ -42,7 +42,9 @@ def upsert_user(session: Session, *, email: str, password: str, **attrs: str) ->
     existing = session.query(User).filter(User.email == email).first()
     if existing:
         if verify_password(password, existing.password_hash):
-            LOGGER.info("User already present", extra={"user_id": existing.id, "email": email})
+            LOGGER.info(
+                "User already present", extra={"user_id": existing.id, "email": email}
+            )
             return
 
         existing.password_hash = hash_password(password)
