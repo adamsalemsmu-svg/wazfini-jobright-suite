@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
+import os
 
 from sqlalchemy.orm import Session
 
@@ -19,40 +20,57 @@ from app.models import User
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-DEMO_EMAIL = "demo@wazifni.ai"
-DEMO_PASSWORD = "ChangeMe!2024"
+DEFAULT_USERS = (
+    {
+        "email": os.getenv("DEMO_USER_EMAIL", "demo@wazifni.ai"),
+        "password": os.getenv("DEMO_USER_PASSWORD", "ChangeMe!2024"),
+        "full_name": "Demo Candidate",
+        "locale": "en",
+        "time_zone": "Asia/Dubai",
+    },
+    {
+        "email": os.getenv("SMOKE_USER_EMAIL", "adam@wazifni.ai"),
+        "password": os.getenv("SMOKE_USER_PASSWORD", "TestSmoke!2024"),
+        "full_name": "Smoke Test Account",
+        "locale": "en",
+        "time_zone": "UTC",
+    },
+)
 
 
-def seed_demo_user(session: Session) -> None:
-    existing = session.query(User).filter(User.email == DEMO_EMAIL).first()
+def upsert_user(session: Session, *, email: str, password: str, **attrs: str) -> None:
+    existing = session.query(User).filter(User.email == email).first()
     if existing:
-        if verify_password(DEMO_PASSWORD, existing.password_hash):
-            LOGGER.info("Demo user already present", extra={"user_id": existing.id})
+        if verify_password(password, existing.password_hash):
+            LOGGER.info("User already present", extra={"user_id": existing.id, "email": email})
             return
 
-        existing.password_hash = hash_password(DEMO_PASSWORD)
+        existing.password_hash = hash_password(password)
         session.add(existing)
         session.commit()
-        LOGGER.info("Demo user password reset", extra={"user_id": existing.id})
+        LOGGER.info(
+            "User password reset", extra={"user_id": existing.id, "email": email}
+        )
         return
 
     user = User(
-        email=DEMO_EMAIL,
-        password_hash=hash_password(DEMO_PASSWORD),
-        full_name="Demo Candidate",
-        locale="en",
-        time_zone="Asia/Dubai",
+        email=email,
+        password_hash=hash_password(password),
+        full_name=attrs.get("full_name", ""),
+        locale=attrs.get("locale", "en"),
+        time_zone=attrs.get("time_zone", "UTC"),
     )
     session.add(user)
     session.commit()
-    LOGGER.info("Demo user created", extra={"user_id": user.id})
+    LOGGER.info("User created", extra={"user_id": user.id, "email": email})
 
 
 def main() -> None:
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     try:
-        seed_demo_user(session)
+        for user in DEFAULT_USERS:
+            upsert_user(session, **user)
     finally:
         session.close()
 
