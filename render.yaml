@@ -4,6 +4,7 @@ services:
     env: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: ./start.sh
+  postdeployCommand: cd backend && PYTHONPATH=. alembic upgrade head && python ../scripts/seed.py
     autoDeploy: true
     envVars:
       - key: DATABASE_URL

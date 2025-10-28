@@ -54,10 +54,44 @@
   "Navigation": {
     "dashboard": "Dashboard",
     "logout": "Log out",
+    "logoutAria": "Sign out of your account",
     "account": "Signed in as",
-    "guest": "Guest"
+    "guest": "Guest",
+    "switchLocale": "Switch language to {locale}",
+    "localeNames": {
+      "en": "English",
+      "ar": "Arabic"
+    }
   },
   "Dashboard": {
+    "brand": "Wazifni",
+    "navLabel": "Dashboard navigation",
+    "nav": {
+      "home": "Home",
+      "profile": "Profile"
+    },
+    "profile": {
+      "heading": "Welcome, {name}",
+      "subheading": "Here is the latest snapshot of your account.",
+      "profileIntro": "Keep your profile details up to date to personalise job matches and reminders.",
+      "loading": "Loading your profile…",
+      "error": "We couldn't load your profile. Please sign in again.",
+      "retry": "Try again",
+      "timezoneUnset": "Not set",
+      "details": {
+        "title": "Account details",
+        "subtitle": "Information synced from your Wazifni profile.",
+        "email": "Email",
+        "timezone": "Time zone"
+      },
+      "activity": {
+        "title": "Get started",
+        "subtitle": "Suggested next steps to make the most of Wazifni.",
+        "tip1": "Upload your resume to receive tailored job matches.",
+        "tip2": "Use the AI assistant to customise your applications.",
+        "tip3": "Track interviews and automate follow-up reminders."
+      }
+    },
     "welcome": "Hello {name}",
     "subtitle": "All your career activity at a glance.",
     "tips": {

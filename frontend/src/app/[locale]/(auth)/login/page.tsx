@@ -43,8 +43,9 @@ export default function LoginPage() {
       });
       login(data);
       router.push(`/${locale}/dashboard`);
-    } catch (err) {
-      setError(t("error"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("error");
+      setError(message || t("error"));
     } finally {
       setLoading(false);
     }

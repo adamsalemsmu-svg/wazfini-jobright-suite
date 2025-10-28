@@ -34,7 +34,8 @@ export default function ResetPage() {
       await apiPost("/auth/request-reset", { email: requestEmail });
       setRequestMessage(t("requestSuccess"));
     } catch (error) {
-      setRequestError(t("requestError"));
+      const message = error instanceof Error ? error.message : t("requestError");
+      setRequestError(message || t("requestError"));
     } finally {
       setRequestLoading(false);
     }
@@ -49,7 +50,8 @@ export default function ResetPage() {
       await apiPost("/auth/reset", { token, password: newPassword });
       setResetMessage(t("resetSuccess"));
     } catch (error) {
-      setResetError(t("resetError"));
+      const message = error instanceof Error ? error.message : t("resetError");
+      setResetError(message || t("resetError"));
     } finally {
       setResetLoading(false);
     }

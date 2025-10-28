@@ -1,140 +1,93 @@
-import type { Config } from "tailwindcss";import type { Config } from "tailwindcss";
-
-import animatePlugin from "tailwindcss-animate";import animatePlugin from "tailwindcss-animate";
-
-
-
-const config: Config = {const config: Config = {
-
-  darkMode: ["class"],    darkMode: ["class"],
-
-  content: [    content: [
-
-    "./src/pages/**/*.{ts,tsx}",    "./src/pages/**/*.{ts,tsx}",
-
-    "./src/components/**/*.{ts,tsx}",    "./src/components/**/*.{ts,tsx}",
-
-    "./src/app/**/*.{ts,tsx}",	darkMode: ["class"],
-
-  ],	content: [
-
-  theme: {  theme: {
-
-    extend: {  	extend: {
-
-      fontFamily: {  		fontFamily: {
-
-        sans: ["Inter", "sans-serif"],  			sans: [
-
-      },  				'Inter',
-
-      borderRadius: {		extend: {
-
-        lg: "var(--radius)",  			]
-
-        md: "calc(var(--radius) - 2px)",				sans: ["Inter", "sans-serif"],
-
-        sm: "calc(var(--radius) - 4px)",  			sm: 'calc(var(--radius) - 4px)'
-
-      },  		},
-
-      colors: {				lg: "var(--radius)",
-
-        background: "hsl(var(--background))",				md: "calc(var(--radius) - 2px)",
-
-        foreground: "hsl(var(--foreground))",				sm: "calc(var(--radius) - 4px)",
-
-        card: {  			card: {
-
-          DEFAULT: "hsl(var(--card))",  				DEFAULT: 'hsl(var(--card))',
-
-          foreground: "hsl(var(--card-foreground))",				background: "hsl(var(--background))",
-
-        },				foreground: "hsl(var(--foreground))",
-
-        popover: {				card: {
-
-          DEFAULT: "hsl(var(--popover))",					DEFAULT: "hsl(var(--card))",
-
-          foreground: "hsl(var(--popover-foreground))",					foreground: "hsl(var(--card-foreground))",
-
-        },				},
-
-        primary: {				popover: {
-
-          DEFAULT: "hsl(var(--primary))",					DEFAULT: "hsl(var(--popover))",
-
-          foreground: "hsl(var(--primary-foreground))",					foreground: "hsl(var(--popover-foreground))",
-
-        },				},
-
-        secondary: {				primary: {
-
-          DEFAULT: "hsl(var(--secondary))",					DEFAULT: "hsl(var(--primary))",
-
-          foreground: "hsl(var(--secondary-foreground))",					foreground: "hsl(var(--primary-foreground))",
-
-        },				},
-
-        muted: {				secondary: {
-
-          DEFAULT: "hsl(var(--muted))",					DEFAULT: "hsl(var(--secondary))",
-
-          foreground: "hsl(var(--muted-foreground))",					foreground: "hsl(var(--secondary-foreground))",
-
-        },				},
-
-        accent: {				muted: {
-
-          DEFAULT: "hsl(var(--accent))",					DEFAULT: "hsl(var(--muted))",
-
-          foreground: "hsl(var(--accent-foreground))",					foreground: "hsl(var(--muted-foreground))",
-
-        },				},
-
-        destructive: {				accent: {
-
-          DEFAULT: "hsl(var(--destructive))",					DEFAULT: "hsl(var(--accent))",
-
-          foreground: "hsl(var(--destructive-foreground))",					foreground: "hsl(var(--accent-foreground))",
-
-        },				},
-
-        border: "hsl(var(--border))",				destructive: {
-
-        input: "hsl(var(--input))",					DEFAULT: "hsl(var(--destructive))",
-
-        ring: "hsl(var(--ring))",					foreground: "hsl(var(--destructive-foreground))",
-
-        chart: {				},
-
-          1: "hsl(var(--chart-1))",				border: "hsl(var(--border))",
-
-          2: "hsl(var(--chart-2))",				input: "hsl(var(--input))",
-
-          3: "hsl(var(--chart-3))",				ring: "hsl(var(--ring))",
-
-          4: "hsl(var(--chart-4))",				chart: {
-
-          5: "hsl(var(--chart-5))",					1: "hsl(var(--chart-1))",
-
-        },					2: "hsl(var(--chart-2))",
-
-      },					3: "hsl(var(--chart-3))",
-
-    },					4: "hsl(var(--chart-4))",
-
-  },					5: "hsl(var(--chart-5))",
-
-  plugins: [animatePlugin],				},
-
-};			},
-
-		},
-
-export default config;export default config;
-
-	},
-	plugins: [animatePlugin],
-
-
+import type { Config } from "tailwindcss";
+import animatePlugin from "tailwindcss-animate";
+
+const config: Config = {
+  darkMode: "class",
+  content: [
+    "./src/pages/**/*.{ts,tsx,js,jsx,mdx}",
+    "./src/components/**/*.{ts,tsx,js,jsx,mdx}",
+    "./src/app/**/*.{ts,tsx,js,jsx,mdx}"
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ["Inter", "sans-serif"]
+      },
+      container: {
+        center: true,
+        padding: "1rem",
+        screens: {
+          "2xl": "1280px"
+        }
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)"
+      },
+      colors: {
+        brand: {
+          DEFAULT: "#2563EB",
+          dark: "#1E40AF"
+        },
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))"
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))"
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))"
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))"
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))"
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))"
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))"
+        },
+        chart: {
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          4: "hsl(var(--chart-4))",
+          5: "hsl(var(--chart-5))"
+        }
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" }
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" }
+        }
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out"
+      }
+    }
+  },
+  plugins: [animatePlugin]
+};
+
+export default config;

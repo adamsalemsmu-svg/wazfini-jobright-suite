@@ -37,8 +37,9 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push(`/${locale}/login`);
       }, 1200);
-    } catch (err) {
-      setError(t("error"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("error");
+      setError(message || t("error"));
     } finally {
       setLoading(false);
     }

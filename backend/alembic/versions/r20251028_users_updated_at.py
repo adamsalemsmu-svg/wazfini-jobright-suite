@@ -9,6 +9,7 @@ Create Date: 2025-10-28 12:00:00
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,18 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Ensure the column exists and any nulls are normalized.
-    op.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE"
+    # Add updated_at if it does not exist yet.
+    op.add_column(
+        "users",
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.execute(
-        "UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
-    )
-    op.execute(
-        "ALTER TABLE users ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
-    )
-    op.execute("ALTER TABLE users ALTER COLUMN updated_at SET NOT NULL")
 
 
 def downgrade() -> None:
-    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS updated_at")
+    op.drop_column("users", "updated_at")

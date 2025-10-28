@@ -47,7 +47,8 @@ jobs:
           psql "$PSQL_DATABASE_URL" -c "\d users"
 
       - name: Validate migration integrity
-        working-directory: backend
+        working-directory: backend  
+        
         run: |
           export PYTHONPATH=.
           alembic check

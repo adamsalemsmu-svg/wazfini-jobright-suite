@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import LayoutShell from "@/components/layout/Layout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  return <LayoutShell>{children}</LayoutShell>;
+export default function DashboardLayoutWrapper({ children }: { children: ReactNode }) {
+  return <DashboardLayout>{children}</DashboardLayout>;
 }
