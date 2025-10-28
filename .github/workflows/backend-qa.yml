@@ -45,14 +45,12 @@ jobs:
           pytest --maxfail=1 --disable-warnings -q --cov=app
 
       - name: Run smoke tests against deployed backend
-        if: ${{ env.SMOKE_BASE_URL != '' && env.SMOKE_USER_EMAIL != '' && env.SMOKE_USER_PASSWORD != '' }}
+        if: ${{ env.SMOKE_BASE_URL && env.SMOKE_USER_EMAIL && env.SMOKE_USER_PASSWORD }}
         run: |
           cd backend
-          BASE_URL="${SMOKE_BASE_URL}" \
-          SMOKE_USER_EMAIL="${SMOKE_USER_EMAIL}" \
-          SMOKE_USER_PASSWORD="${SMOKE_USER_PASSWORD}" \
           bash ../scripts/smoke.sh
 
       - name: Skip smoke tests (secrets missing)
-        if: ${{ !(env.SMOKE_BASE_URL != '' && env.SMOKE_USER_EMAIL != '' && env.SMOKE_USER_PASSWORD != '') }}
-        run: echo "Smoke tests skipped: provide RENDER_SMOKE_BASE_URL, SMOKE_USER_EMAIL, SMOKE_USER_PASSWORD secrets to enable."
+        if: ${{ !(env.SMOKE_BASE_URL && env.SMOKE_USER_EMAIL && env.SMOKE_USER_PASSWORD) }}
+        run: |
+          echo "Smoke tests skipped: provide RENDER_SMOKE_BASE_URL, SMOKE_USER_EMAIL, SMOKE_USER_PASSWORD secrets to enable."
