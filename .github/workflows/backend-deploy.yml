@@ -1,0 +1,84 @@
+name: Backend Deploy to Render
+
+on:
+  workflow_run:
+    workflows:
+      - Backend QA + Smoke Tests
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_BASE_URL: https://api.render.com/v1
+      RENDER_SMOKE_BASE_URL: ${{ secrets.RENDER_SMOKE_BASE_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Render deploy
+        id: trigger
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            echo "Render credentials not configured."
+            exit 1
+          fi
+          echo "🚀 Triggering Render deploy for service $RENDER_SERVICE_ID"
+          response=$(curl -s -X POST \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":false}' \
+            "$RENDER_BASE_URL/services/$RENDER_SERVICE_ID/deploys")
+          echo "API response: $response"
+          DEPLOY_ID=$(echo "$response" | jq -r '.id')
+          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
+            echo "Failed to trigger deploy. Response: $response"
+            exit 1
+          fi
+          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Render deploy to finish
+        run: |
+          DEPLOY_ID="${{ steps.trigger.outputs.deploy_id }}"
+          echo "⏳ Waiting for deployment $DEPLOY_ID to complete..."
+          for i in {1..40}; do
+            STATUS=$(curl -s -H "Accept: application/json" \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "$RENDER_BASE_URL/deploys/$DEPLOY_ID" | jq -r '.status')
+            echo "Current status: $STATUS"
+            if [ "$STATUS" = "live" ]; then
+              echo "✅ Deployment successful."
+              break
+            elif [ "$STATUS" = "failed" ]; then
+              echo "❌ Deployment failed."
+              exit 1
+            fi
+            if [ $i -eq 40 ]; then
+              echo "Deployment timeout exceeded."
+              exit 1
+            fi
+            sleep 15
+          done
+
+      - name: Post-deploy health checks
+        run: |
+          if [ -z "$RENDER_SMOKE_BASE_URL" ]; then
+            echo "RENDER_SMOKE_BASE_URL not provided; skipping health checks."
+            exit 0
+          fi
+          BASE_URL=${RENDER_SMOKE_BASE_URL%/}
+          echo "🩺 Checking $BASE_URL/healthz and /readyz"
+          for path in healthz readyz; do
+            CODE=$(curl -o /dev/null -s -w "%{http_code}" "$BASE_URL/$path")
+            echo " $path -> HTTP ${CODE}"
+            if [ "$CODE" -ne 200 ]; then
+              echo "❌ Health check $path failed (HTTP $CODE)"
+              exit 1
+            fi
+          done
+          echo "✅ Backend health confirmed."

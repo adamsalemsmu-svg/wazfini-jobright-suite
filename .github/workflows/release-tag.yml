@@ -1,0 +1,69 @@
+name: Create Release Tag & Update Changelog
+
+on:
+  workflow_run:
+    workflows:
+      - Frontend Deploy to Vercel
+      - Backend Deploy to Render
+    types:
+      - completed
+
+jobs:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup git
+        run: |
+          git config user.name "CI Release Bot"
+          git config user.email "actions@github.com"
+
+      - name: Generate next version
+        id: version
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Last tag: ${LAST_TAG}"
+          NEXT_TAG=$(echo "${LAST_TAG}" | awk -F. -v OFS=. '{sub(/^v/,"",$1); $NF += 1; print "v"$1,$2,$3}')
+          echo "Next tag: ${NEXT_TAG}"
+          echo "last_version=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "next_version=${NEXT_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Update changelog
+        run: |
+          LAST="${{ steps.version.outputs.last_version }}"
+          NEXT="${{ steps.version.outputs.next_version }}"
+          DATE=$(date +'%Y-%m-%d')
+          if git rev-parse --verify --quiet "$LAST" >/dev/null 2>&1; then
+            COMMITS=$(git log "$LAST"..HEAD --no-merges --pretty=format:'- %s')
+          else
+            COMMITS=$(git log --no-merges --pretty=format:'- %s')
+          fi
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- No changes since last release."
+          fi
+          tmp=$(mktemp)
+          {
+            echo "## ${NEXT} - ${DATE}"
+            echo "$COMMITS"
+            echo
+            cat CHANGELOG.md
+          } > "$tmp"
+          mv "$tmp" CHANGELOG.md
+
+      - name: Commit and tag release
+        run: |
+          NEXT="${{ steps.version.outputs.next_version }}"
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "No changelog updates detected; skipping release."
+            exit 0
+          fi
+          git add CHANGELOG.md
+          git commit -m "chore: release ${NEXT}"
+          git tag -a "${NEXT}" -m "Automated release ${NEXT}"
+          git push origin main
+          git push origin "${NEXT}"

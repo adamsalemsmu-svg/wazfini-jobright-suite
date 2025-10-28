@@ -1,0 +1,100 @@
+name: Frontend QA (Lighthouse + axe-core)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Chrome dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium || true
+          CHROME_BIN="$(command -v chromium-browser || command -v chromium || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo "Chromium installation failed" >&2
+            exit 1
+          fi
+          echo "CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
+          echo "AXE_CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build and start frontend (production)
+        run: |
+          cd frontend
+          npm run build
+          nohup npm run start -- --hostname 0.0.0.0 --port 3000 > "$GITHUB_WORKSPACE/.next-start.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/.next-pid"
+          sleep 15
+
+      - name: Run Lighthouse audits
+        env:
+          CHROME_PATH: ${{ env.CHROME_PATH }}
+        run: |
+          cd frontend
+          mkdir -p reports
+          npx lighthouse http://localhost:3000/en/login --quiet --chrome-flags="--headless --no-sandbox" \
+            --output=json --output-path=reports/en-login.json
+          npx lighthouse http://localhost:3000/en/dashboard --quiet --chrome-flags="--headless --no-sandbox" \
+            --output=json --output-path=reports/en-dashboard.json
+          npx lighthouse http://localhost:3000/ar/login --quiet --chrome-flags="--headless --no-sandbox" \
+            --output=json --output-path=reports/ar-login.json
+
+      - name: Run axe-core accessibility checks
+        env:
+          AXE_CHROME_PATH: ${{ env.CHROME_PATH }}
+        run: |
+          cd frontend
+          npx @axe-core/cli http://localhost:3000/en/login --save reports/axe-en-login.json
+          npx @axe-core/cli http://localhost:3000/ar/login --save reports/axe-ar-login.json
+
+      - name: Evaluate Lighthouse thresholds
+        id: evaluate
+        run: |
+          cd frontend
+          ACCESS=$(jq '.categories.accessibility.score * 100' reports/en-login.json)
+          PERF=$(jq '.categories.performance.score * 100' reports/en-login.json)
+          echo "Accessibility=${ACCESS}" >> "$GITHUB_OUTPUT"
+          echo "Performance=${PERF}" >> "$GITHUB_OUTPUT"
+          echo "Accessibility score: ${ACCESS}"
+          echo "Performance score: ${PERF}"
+          if [ "${ACCESS%.*}" -lt 95 ] || [ "${PERF%.*}" -lt 90 ]; then
+            echo "QA thresholds failed (Accessibility >=95, Performance >=90 required)." >&2
+            exit 1
+          fi
+
+      - name: Upload QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-qa-reports
+          path: frontend/reports
+
+      - name: Stop Next.js server
+        if: always()
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/.next-pid" ]; then
+            kill $(cat "$GITHUB_WORKSPACE/.next-pid") || true
+            rm "$GITHUB_WORKSPACE/.next-pid"
+          fi

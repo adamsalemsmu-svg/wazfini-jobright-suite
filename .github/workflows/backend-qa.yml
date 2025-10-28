@@ -1,0 +1,58 @@
+name: Backend QA + Smoke Tests
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      SMOKE_BASE_URL: ${{ secrets.RENDER_SMOKE_BASE_URL }}
+      SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+      SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
+
+      - name: Lint backend (flake8)
+        run: |
+          cd backend
+          flake8 . --max-line-length=120
+
+      - name: Run unit tests (pytest)
+        run: |
+          cd backend
+          pytest --maxfail=1 --disable-warnings -q --cov=app
+
+      - name: Run smoke tests against deployed backend
+        if: ${{ env.SMOKE_BASE_URL != '' && env.SMOKE_USER_EMAIL != '' && env.SMOKE_USER_PASSWORD != '' }}
+        run: |
+          cd backend
+          BASE_URL="${SMOKE_BASE_URL}" \
+          SMOKE_USER_EMAIL="${SMOKE_USER_EMAIL}" \
+          SMOKE_USER_PASSWORD="${SMOKE_USER_PASSWORD}" \
+          bash ../scripts/smoke.sh
+
+      - name: Skip smoke tests (secrets missing)
+        if: ${{ !(env.SMOKE_BASE_URL != '' && env.SMOKE_USER_EMAIL != '' && env.SMOKE_USER_PASSWORD != '') }}
+        run: echo "Smoke tests skipped: provide RENDER_SMOKE_BASE_URL, SMOKE_USER_EMAIL, SMOKE_USER_PASSWORD secrets to enable."
