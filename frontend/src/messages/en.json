@@ -1,0 +1,76 @@
+{
+  "Auth": {
+    "Login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to manage your applications and documents.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Log in",
+      "loading": "Signing in…",
+      "registerLink": "Need an account? Create one",
+      "resetLink": "Forgot your password?",
+      "error": "We couldn't match that email and password."
+    },
+    "Register": {
+      "title": "Create your Wazifni account",
+      "subtitle": "Join to track jobs, resumes, and AI insights in one place.",
+      "nameLabel": "Full name",
+      "namePlaceholder": "Your name",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Create a secure password",
+      "submit": "Register",
+      "loading": "Creating account…",
+      "loginPrompt": "Already have an account?",
+      "loginLink": "Sign in",
+      "success": "Account created! Redirecting to sign in…",
+      "error": "We couldn't create your account. Please try again."
+    },
+    "Reset": {
+      "requestTitle": "Request a reset email",
+      "requestSubtitle": "Enter your email address and we'll send you instructions.",
+      "requestSubmit": "Send reset link",
+      "requestSuccess": "Reset instructions sent. Check your inbox.",
+      "requestError": "We couldn't find an account with that email.",
+      "resetTitle": "Reset your password",
+      "resetSubtitle": "Paste the token you received and choose a new password.",
+      "resetSubmit": "Update password",
+      "resetSuccess": "Password updated! You can sign in with your new password.",
+      "resetError": "We couldn't reset the password. Double-check your token.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "tokenLabel": "Reset token",
+      "tokenPlaceholder": "Paste the token from your email",
+      "newPasswordLabel": "New password",
+      "newPasswordPlaceholder": "Enter a secure password",
+      "backToLogin": "Return to login",
+      "tokenHelp": "Tokens remain valid for a limited time. Request a new one if it expired.",
+      "loading": "Submitting…"
+    }
+  },
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "logout": "Log out",
+    "account": "Signed in as",
+    "guest": "Guest"
+  },
+  "Dashboard": {
+    "welcome": "Hello {name}",
+    "subtitle": "All your career activity at a glance.",
+    "tips": {
+      "0": "Upload your resume to receive tailored job matches.",
+      "1": "Use the AI assistant to customise your applications.",
+      "2": "Track interviews and automate follow-up reminders."
+    },
+    "status": {
+      "title": "API status",
+      "subtitle": "Live connection to the Wazifni backend.",
+      "loading": "Checking backend availability…",
+      "error": "We couldn't reach the backend right now.",
+      "unknown": "Unknown"
+    }
+  }
+}
