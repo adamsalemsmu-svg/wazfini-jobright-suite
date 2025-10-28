@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_
 from sqlmodel import select
 
 from ..core.db import get_session
@@ -45,8 +46,10 @@ async def search_jobs(filters: JobFilters, db=Depends(get_session)):
 
     if filters.q:
         q = q.where(
-            (Job.title.ilike(f"%{filters.q}%"))
-            | (Job.description.ilike(f"%{filters.q}%"))
+            or_(
+                Job.title.ilike(f"%{filters.q}%"),
+                Job.description.ilike(f"%{filters.q}%"),
+            )
         )
 
     q = q.order_by(Job.posted_date.desc())

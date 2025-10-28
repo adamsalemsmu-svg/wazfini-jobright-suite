@@ -135,12 +135,15 @@ def _mock_tailor(resume_text: str, job_text: str, kws: List[str]) -> str:
         "Automated recurring analytics using Python and SQL for faster SLAs.",
         "Collaborated with product/ops to prioritize and deliver data initiatives.",
     ]
-    return (
-        "### Tailored Resume (Mock)\n\n"
-        + "\n".join(f"- {b}" if b.endswith(".") else f"- {b}." for b in bullets)
-        + "\n\n**Core Keywords Mapped:** "
-        + ", ".join(kws[:15])
-    )
+    parts = [
+        "### Tailored Resume (Mock)\n\n",
+        "\n".join(
+            f"- {b}" if b.endswith(".") else f"- {b}." for b in bullets
+        ),
+        "\n\n**Core Keywords Mapped:** ",
+        ", ".join(kws[:15]),
+    ]
+    return "".join(parts)
 
 
 def _openai_client() -> OpenAI:
