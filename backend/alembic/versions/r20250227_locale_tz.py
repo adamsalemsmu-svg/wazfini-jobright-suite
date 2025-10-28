@@ -1,6 +1,6 @@
 """Add locale and time_zone columns to users
 
-Revision ID: 20250227_add_locale_and_time_zone
+Revision ID: r20250227_locale_tz
 Revises: 20240523_add_full_name
 Create Date: 2025-10-27 03:30:00
 
@@ -12,7 +12,7 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = "20250227_add_locale_and_time_zone"
+revision: str = "r20250227_locale_tz"
 down_revision: Union[str, None] = "20240523_add_full_name"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
