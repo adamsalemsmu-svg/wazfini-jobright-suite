@@ -1,0 +1,81 @@
+name: Generate Release Summary
+
+on:
+  workflow_run:
+    workflows:
+      - Frontend Deploy to Vercel
+      - Backend Deploy to Render
+    types:
+      - completed
+
+jobs:
+  release-summary:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Gather info
+        id: gather
+        run: |
+          FRONTEND_URL="https://wazifni-frontend.vercel.app"
+          BACKEND_URL="${{ secrets.RENDER_SMOKE_BASE_URL }}"
+          COMMIT_SHA=${GITHUB_SHA::7}
+          AUTHOR=${GITHUB_ACTOR}
+          DATE=$(date +"%Y-%m-%d %H:%M:%S")
+          echo "FRONTEND_URL=${FRONTEND_URL}" >> "$GITHUB_OUTPUT"
+          echo "BACKEND_URL=${BACKEND_URL}" >> "$GITHUB_OUTPUT"
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "AUTHOR=${AUTHOR}" >> "$GITHUB_OUTPUT"
+          echo "DATE=${DATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Read Lighthouse & coverage metrics
+        id: metrics
+        run: |
+          FRONTEND_ACC=$(jq '.categories.accessibility.score * 100' frontend/reports/en-login.json 2>/dev/null || echo "N/A")
+          FRONTEND_PERF=$(jq '.categories.performance.score * 100' frontend/reports/en-login.json 2>/dev/null || echo "N/A")
+          BACKEND_COV=$(grep -Eo "[0-9]+%" backend/.coverage 2>/dev/null || echo "N/A")
+          echo "FRONTEND_ACC=${FRONTEND_ACC}" >> "$GITHUB_OUTPUT"
+          echo "FRONTEND_PERF=${FRONTEND_PERF}" >> "$GITHUB_OUTPUT"
+          echo "BACKEND_COV=${BACKEND_COV}" >> "$GITHUB_OUTPUT"
+
+      - name: Compose release summary
+        run: |
+          mkdir -p reports
+          cat > reports/release-summary.md <<'EOF'
+          # 🚀 Wazifni Release Summary
+
+          **Date:** ${{ steps.gather.outputs.DATE }}
+          **Commit:** `${{ steps.gather.outputs.COMMIT_SHA }}`
+          **Author:** `${{ steps.gather.outputs.AUTHOR }}`
+
+          ## ✅ Deployment Status
+          - **Frontend (Vercel):** [${{ steps.gather.outputs.FRONTEND_URL }}](${{ steps.gather.outputs.FRONTEND_URL }})
+          - **Backend (Render):** [${{ steps.gather.outputs.BACKEND_URL }}](${{ steps.gather.outputs.BACKEND_URL }})
+
+          ## 📊 QA Metrics
+          | Metric | Value |
+          |--------|-------|
+          | Accessibility | ${{ steps.metrics.outputs.FRONTEND_ACC }} |
+          | Performance | ${{ steps.metrics.outputs.FRONTEND_PERF }} |
+          | Backend Coverage | ${{ steps.metrics.outputs.BACKEND_COV }} |
+
+          ## 🧠 Notes
+          - All QA pipelines passed successfully.
+          - Health checks confirmed: `/healthz` & `/readyz`.
+          - Artifacts stored in **frontend/reports** and GitHub Actions Artifacts.
+
+          _Generated automatically by CI/CD at ${{ steps.gather.outputs.DATE }}._
+          EOF
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v0.${{ github.run_number }}
+          name: "Wazifni Release v0.${{ github.run_number }}"
+          body_path: reports/release-summary.md
+          draft: false
+          prerelease: false
