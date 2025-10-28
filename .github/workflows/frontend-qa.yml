@@ -35,6 +35,36 @@ jobs:
           echo "CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
           echo "AXE_CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
 
+      - name: Install matching ChromeDriver
+        env:
+          CHROME_PATH: ${{ env.CHROME_PATH }}
+        run: |
+          set -euo pipefail
+          CHROME_BIN="${CHROME_PATH}"
+          if [ -z "${CHROME_BIN}" ]; then
+            CHROME_BIN="$(command -v chromium-browser || command -v chromium || command -v google-chrome || true)"
+          fi
+          if [ -z "${CHROME_BIN}" ]; then
+            echo "Chrome binary not found" >&2
+            exit 1
+          fi
+          CHROME_VERSION="$($CHROME_BIN --version | sed -E 's/[^0-9]*([0-9.]+).*/\1/')"
+          if [ -z "${CHROME_VERSION}" ]; then
+            echo "Unable to determine Chrome version" >&2
+            exit 1
+          fi
+          CHROME_MAJOR="${CHROME_VERSION%%.*}"
+          echo "Detected Chrome version: ${CHROME_VERSION} (major ${CHROME_MAJOR})"
+          LATEST=$(curl -fsS "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/LATEST_RELEASE_${CHROME_MAJOR}")
+          DRIVER_URL="https://edgedl.google.com/chrome/chrome-for-testing/${LATEST}/linux64/chromedriver-linux64.zip"
+          echo "Downloading ChromeDriver ${LATEST} from ${DRIVER_URL}"
+          curl -fsS -o /tmp/chromedriver.zip "${DRIVER_URL}"
+          unzip -qo /tmp/chromedriver.zip -d /tmp
+          sudo mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+          sudo chmod +x /usr/local/bin/chromedriver
+          /usr/local/bin/chromedriver --version
+          echo "CHROMEDRIVER_PATH=/usr/local/bin/chromedriver" >> "$GITHUB_ENV"
+
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -64,10 +94,13 @@ jobs:
       - name: Run axe-core accessibility checks
         env:
           AXE_CHROME_PATH: ${{ env.CHROME_PATH }}
+          AXE_CHROMEDRIVER_PATH: ${{ env.CHROMEDRIVER_PATH }}
         run: |
           cd frontend
-          npx @axe-core/cli http://localhost:3000/en/login --save reports/axe-en-login.json
-          npx @axe-core/cli http://localhost:3000/ar/login --save reports/axe-ar-login.json
+          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" --chromedriver-path "${AXE_CHROMEDRIVER_PATH}" \
+            http://localhost:3000/en/login --save reports/axe-en-login.json
+          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" --chromedriver-path "${AXE_CHROMEDRIVER_PATH}" \
+            http://localhost:3000/ar/login --save reports/axe-ar-login.json
 
       - name: Evaluate Lighthouse thresholds
         id: evaluate
