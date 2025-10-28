@@ -137,9 +137,7 @@ def _mock_tailor(resume_text: str, job_text: str, kws: List[str]) -> str:
     ]
     parts = [
         "### Tailored Resume (Mock)\n\n",
-        "\n".join(
-            f"- {b}" if b.endswith(".") else f"- {b}." for b in bullets
-        ),
+        "\n".join(f"- {b}" if b.endswith(".") else f"- {b}." for b in bullets),
         "\n\n**Core Keywords Mapped:** ",
         ", ".join(kws[:15]),
     ]
