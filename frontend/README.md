@@ -72,3 +72,5 @@ npm run build  # production build check
 4. Switch between light/dark themes, toggle locales, and ensure logout clears the session.
 
 The frontend expects the FastAPI backend to manage authentication via HTTP-only cookies and CORS settings compatible with the Vercel domain.
+
+## QA verification run
