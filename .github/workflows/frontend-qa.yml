@@ -44,21 +44,6 @@ jobs:
           echo "CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
           echo "AXE_CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
 
-      - name: Set up ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-        with:
-          chromedriver-version: latest
-
-      - name: Export ChromeDriver path
-        run: |
-          DRIVER_PATH="$(command -v chromedriver || true)"
-          if [ -z "$DRIVER_PATH" ]; then
-            echo "ChromeDriver not found on PATH" >&2
-            exit 1
-          fi
-          echo "CHROMEDRIVER_PATH=${DRIVER_PATH}" >> "$GITHUB_ENV"
-          chromedriver --version
-
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -88,12 +73,11 @@ jobs:
       - name: Run axe-core accessibility checks
         env:
           AXE_CHROME_PATH: ${{ env.CHROME_PATH }}
-          AXE_CHROMEDRIVER_PATH: ${{ env.CHROMEDRIVER_PATH }}
         run: |
           cd frontend
-          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" --chromedriver-path "${AXE_CHROMEDRIVER_PATH}" \
+          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
             http://localhost:3000/en/login --save reports/axe-en-login.json
-          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" --chromedriver-path "${AXE_CHROMEDRIVER_PATH}" \
+          npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
             http://localhost:3000/ar/login --save reports/axe-ar-login.json
 
       - name: Evaluate Lighthouse thresholds
