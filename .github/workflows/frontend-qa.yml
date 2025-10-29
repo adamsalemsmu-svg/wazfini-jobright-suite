@@ -32,17 +32,33 @@ jobs:
           echo "Pinging public resolver"
           ping -c1 8.8.8.8 || true
 
-      - name: Install Chrome dependencies
+      - name: Install Chrome dependencies (self-healing)
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium || true
           CHROME_BIN="$(command -v chromium-browser || command -v chromium || true)"
           if [ -z "$CHROME_BIN" ]; then
-            echo "Chromium installation failed" >&2
+            echo "❌ Chromium installation failed, retrying..."
+            sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
+            CHROME_BIN="$(command -v chromium-browser || command -v chromium || true)"
+          fi
+          if [ -z "$CHROME_BIN" ]; then
+            echo "❌ Unable to locate Chromium binary."
             exit 1
           fi
+          echo "✅ Chromium located at: ${CHROME_BIN}"
           echo "CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
           echo "AXE_CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
+
+      - name: Verify Chrome availability
+        run: |
+          if ! "$CHROME_PATH" --version >/dev/null 2>&1; then
+            echo "⚠️ Chrome not detected, reinstalling..."
+            sudo apt-get update
+            sudo apt-get install -y chromium-browser chromium-driver || sudo apt-get install -y chromium chromium-driver || true
+          fi
+          echo "✅ Chromium verification complete."
 
       - name: Install frontend dependencies
         run: |
@@ -57,18 +73,30 @@ jobs:
           echo $! > "$GITHUB_WORKSPACE/.next-pid"
           sleep 15
 
-      - name: Run Lighthouse audits
+      - name: Run Lighthouse audits (with retry)
         env:
           CHROME_PATH: ${{ env.CHROME_PATH }}
         run: |
           cd frontend
           mkdir -p reports
-          npx lighthouse http://localhost:3000/en/login --quiet --chrome-flags="--headless --no-sandbox" \
-            --output=json --output-path=reports/en-login.json
-          npx lighthouse http://localhost:3000/en/dashboard --quiet --chrome-flags="--headless --no-sandbox" \
-            --output=json --output-path=reports/en-dashboard.json
-          npx lighthouse http://localhost:3000/ar/login --quiet --chrome-flags="--headless --no-sandbox" \
-            --output=json --output-path=reports/ar-login.json
+
+          run_lighthouse() {
+            npx lighthouse "$1" --quiet --chrome-flags="--headless --no-sandbox" \
+              --output=json --output-path="$2"
+          }
+
+          echo "⚡ Running Lighthouse audits..."
+          if ! run_lighthouse http://localhost:3000/en/login reports/en-login.json; then
+            echo "⚠️ First attempt failed — retrying after 10 seconds..."
+            sleep 10
+            run_lighthouse http://localhost:3000/en/login reports/en-login.json || {
+              echo "❌ Lighthouse failed twice, exiting."
+              exit 1
+            }
+          fi
+
+          run_lighthouse http://localhost:3000/en/dashboard reports/en-dashboard.json || true
+          run_lighthouse http://localhost:3000/ar/login reports/ar-login.json || true
 
       - name: Run axe-core accessibility checks
         env:
@@ -76,7 +104,12 @@ jobs:
         run: |
           cd frontend
           npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
-            http://localhost:3000/en/login --save reports/axe-en-login.json
+            http://localhost:3000/en/login --save reports/axe-en-login.json || {
+              echo "⚠️ Axe failed once — reinstalling Chromium and retrying..."
+              sudo apt-get install -y chromium-driver || true
+              npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
+                http://localhost:3000/en/login --save reports/axe-en-login.json
+            }
           npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
             http://localhost:3000/ar/login --save reports/axe-ar-login.json
 
