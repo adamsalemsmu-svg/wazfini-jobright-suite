@@ -32,33 +32,30 @@ jobs:
           echo "Pinging public resolver"
           ping -c1 8.8.8.8 || true
 
-      - name: Install Chrome dependencies (self-healing)
+      - name: Install Chrome dependencies (Google stable)
         run: |
           set -euo pipefail
+          sudo apt-get remove -y chromium-browser || true
+          sudo rm -rf /var/lib/snapd/snaps/chromium* || true
           sudo apt-get update
-          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium || true
-          CHROME_BIN="$(command -v chromium-browser || command -v chromium || true)"
-          if [ -z "$CHROME_BIN" ]; then
-            echo "❌ Chromium installation failed, retrying..."
-            sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
-            CHROME_BIN="$(command -v chromium-browser || command -v chromium || true)"
-          fi
-          if [ -z "$CHROME_BIN" ]; then
-            echo "❌ Unable to locate Chromium binary."
-            exit 1
-          fi
-          echo "✅ Chromium located at: ${CHROME_BIN}"
-          echo "CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
-          echo "AXE_CHROME_PATH=${CHROME_BIN}" >> "$GITHUB_ENV"
+          sudo apt-get install -y wget gnupg unzip
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          echo "AXE_CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
 
       - name: Verify Chrome availability
         run: |
           if ! "$CHROME_PATH" --version >/dev/null 2>&1; then
-            echo "⚠️ Chrome not detected, reinstalling..."
+            echo "⚠️ Google Chrome not detected, reinstalling..."
             sudo apt-get update
-            sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium || true
+            sudo apt-get install -y google-chrome-stable
+            echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+            echo "AXE_CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
           fi
-          echo "✅ Chromium verification complete."
+          echo "✅ Google Chrome verification complete."
 
       - name: Install frontend dependencies
         run: |
