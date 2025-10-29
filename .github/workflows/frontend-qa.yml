@@ -79,7 +79,7 @@ jobs:
         run: |
           echo "🧠 Checking Chrome version and startup..."
           "${CHROME_PATH}" --version || true
-          "${CHROME_PATH}" --headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222 about:blank > /tmp/chrome-start.log 2>&1 || true
+          "${CHROME_PATH}" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --remote-debugging-port=9222 about:blank > /tmp/chrome-start.log 2>&1 || true
           echo "🩺 Chrome startup log (last 10 lines):"
           tail -n 10 /tmp/chrome-start.log || true
 
@@ -91,13 +91,13 @@ jobs:
           mkdir -p reports
           echo "⚡ Running Lighthouse audits..."
           npx lighthouse http://localhost:3000/en/login --quiet \
-            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --disable-gpu --remote-debugging-port=9222" \
             --output=json --output-path=reports/en-login.json
           npx lighthouse http://localhost:3000/en/dashboard --quiet \
-            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --disable-gpu --remote-debugging-port=9222" \
             --output=json --output-path=reports/en-dashboard.json
           npx lighthouse http://localhost:3000/ar/login --quiet \
-            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --disable-gpu --remote-debugging-port=9222" \
             --output=json --output-path=reports/ar-login.json
 
       - name: Run axe-core accessibility checks
@@ -105,7 +105,7 @@ jobs:
           AXE_CHROME_PATH: ${{ env.CHROME_PATH }}
         run: |
           cd frontend
-          CHROME_FLAGS="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222"
+          CHROME_FLAGS="--headless --no-sandbox --disable-dev-shm-usage --disable-gpu --remote-debugging-port=9222"
           echo "⚙️ Running axe-core audits with safe Chrome flags..."
           npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
             --chrome-args="${CHROME_FLAGS}" \
