@@ -74,3 +74,4 @@ npm run build  # production build check
 The frontend expects the FastAPI backend to manage authentication via HTTP-only cookies and CORS settings compatible with the Vercel domain.
 
 ## QA verification run
+Triggered: 2025-10-29 QA recheck
