@@ -44,11 +44,13 @@ jobs:
           cd backend
           pytest --maxfail=1 --disable-warnings -q --cov=app
 
-      - name: Run smoke tests against deployed backend
+      - name: Run smoke tests
         if: ${{ env.SMOKE_BASE_URL && env.SMOKE_USER_EMAIL && env.SMOKE_USER_PASSWORD }}
+        env:
+          BASE_URL: ${{ secrets.RENDER_SMOKE_BASE_URL }}
         run: |
           cd backend
-          bash ../scripts/smoke.sh
+          ../scripts/smoke.sh
 
       - name: Skip smoke tests (secrets missing)
         if: ${{ !(env.SMOKE_BASE_URL && env.SMOKE_USER_EMAIL && env.SMOKE_USER_PASSWORD) }}
