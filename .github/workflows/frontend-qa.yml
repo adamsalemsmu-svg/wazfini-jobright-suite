@@ -73,39 +73,45 @@ jobs:
           echo $! > "$GITHUB_WORKSPACE/.next-pid"
           sleep 15
 
-      - name: Run Lighthouse audits (with retry)
+      - name: Chrome startup diagnostic
+        env:
+          CHROME_PATH: ${{ env.CHROME_PATH }}
+        run: |
+          echo "🧠 Checking Chrome version and startup..."
+          "${CHROME_PATH}" --version || true
+          "${CHROME_PATH}" --headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222 about:blank > /tmp/chrome-start.log 2>&1 || true
+          echo "🩺 Chrome startup log (last 10 lines):"
+          tail -n 10 /tmp/chrome-start.log || true
+
+      - name: Run Lighthouse audits
         env:
           CHROME_PATH: ${{ env.CHROME_PATH }}
         run: |
           cd frontend
           mkdir -p reports
-
-          run_lighthouse() {
-            npx lighthouse "$1" --quiet --chrome-flags="--headless --no-sandbox" \
-              --output=json --output-path="$2"
-          }
-
           echo "⚡ Running Lighthouse audits..."
-          if ! run_lighthouse http://localhost:3000/en/login reports/en-login.json; then
-            echo "⚠️ First attempt failed — retrying after 10 seconds..."
-            sleep 10
-            run_lighthouse http://localhost:3000/en/login reports/en-login.json || {
-              echo "❌ Lighthouse failed twice, exiting."
-              exit 1
-            }
-          fi
-
-          run_lighthouse http://localhost:3000/en/dashboard reports/en-dashboard.json || true
-          run_lighthouse http://localhost:3000/ar/login reports/ar-login.json || true
+          npx lighthouse http://localhost:3000/en/login --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --output=json --output-path=reports/en-login.json
+          npx lighthouse http://localhost:3000/en/dashboard --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --output=json --output-path=reports/en-dashboard.json
+          npx lighthouse http://localhost:3000/ar/login --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222" \
+            --output=json --output-path=reports/ar-login.json
 
       - name: Run axe-core accessibility checks
         env:
           AXE_CHROME_PATH: ${{ env.CHROME_PATH }}
         run: |
           cd frontend
+          CHROME_FLAGS="--headless --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222"
+          echo "⚙️ Running axe-core audits with safe Chrome flags..."
           npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
+            --chrome-args="${CHROME_FLAGS}" \
             http://localhost:3000/en/login --save reports/axe-en-login.json
           npx @axe-core/cli --chrome-path "${AXE_CHROME_PATH}" \
+            --chrome-args="${CHROME_FLAGS}" \
             http://localhost:3000/ar/login --save reports/axe-ar-login.json
 
       - name: Evaluate Lighthouse thresholds
