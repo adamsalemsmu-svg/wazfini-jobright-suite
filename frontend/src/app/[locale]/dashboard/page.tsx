@@ -1,139 +1,87 @@
 "use client";
 
-import { useMemo } from "react";
-import { useTranslations } from "next-intl";
-import { ApplicationsList } from "./components/ApplicationsList";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useApplications } from "./hooks/useApplications";
+import { useJobsFeed } from "./hooks/useJobsFeed";
+import { useProtectedUserProfile } from "@/lib/hooks/useProtectedUserProfile";
+
 import { DashboardHeader } from "./components/DashboardHeader";
+import { ApplicationsList } from "./components/ApplicationsList";
 import { JobCard } from "./components/JobCard";
 import { UserCard } from "./components/UserCard";
-import { AssistantPanel } from "./components/assistant/AssistantPanel";
-import { useApplications } from "@/hooks/useApplications";
-import { useJobsFeed } from "@/hooks/useJobsFeed";
-import { useProtectedUserProfile } from "@/hooks/useProtectedUserProfile";
-import { useAuth } from "@/lib/store";
+import AssistantPanel from "./components/AssistantPanel";
+import AnalyticsSummary from "./components/AnalyticsSummary"; // ✅ NEW IMPORT
 
 export default function DashboardPage() {
-  const overviewT = useTranslations("Dashboard.home");
-  const jobsT = useTranslations("Dashboard.home.jobs");
-  const { user: authUser } = useAuth();
+  const router = useRouter();
+  const { user, isLoading: userLoading, error: userError } = useProtectedUserProfile();
+  const {
+    applications,
+    isLoading: appsLoading,
+    error: appsError,
+    refetch: refetchApps,
+  } = useApplications();
+  const {
+    jobs,
+    isLoading: jobsLoading,
+    error: jobsError,
+    refetch: refetchJobs,
+  } = useJobsFeed();
 
-  const profileQuery = useProtectedUserProfile();
-  const applicationsQuery = useApplications();
-  const jobsQuery = useJobsFeed();
+  // Redirect unauthenticated users
+  useEffect(() => {
+    if (!userLoading && !user) router.push("/en/login");
+  }, [user, userLoading, router]);
 
-  const isProfileLoading = profileQuery.isLoading || profileQuery.isFetching;
-  const hasProfileError = Boolean(profileQuery.error);
-
-  const displayName = useMemo(() => {
-    const profile = profileQuery.data;
-    return (
-      profile?.full_name ??
-      profile?.email ??
-      authUser?.full_name ??
-      authUser?.email ??
-      ""
-    );
-  }, [authUser?.email, authUser?.full_name, profileQuery.data]);
-
-  if (isProfileLoading) {
-    return (
-      <div className="flex min-h-[40vh] flex-col items-start justify-center gap-3">
-        <p className="text-sm text-muted-foreground">{overviewT("loading")}</p>
-      </div>
-    );
-  }
-
-  if (hasProfileError || !profileQuery.data) {
-    return (
-      <div className="flex min-h-[40vh] flex-col items-start justify-center gap-4">
-        <p className="text-sm text-destructive">{overviewT("error")}</p>
-        <button
-          type="button"
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          onClick={() => profileQuery.refetch()}
-        >
-          {overviewT("retry")}
-        </button>
-      </div>
-    );
-  }
-
-  const applications = applicationsQuery.data ?? [];
-  const jobs = jobsQuery.data ?? [];
-  const isRefreshing =
-    profileQuery.isFetching || applicationsQuery.isFetching || jobsQuery.isFetching;
-
-  const refreshAll = () => {
-    void Promise.all([
-      profileQuery.refetch(),
-      applicationsQuery.refetch(),
-      jobsQuery.refetch(),
-    ]);
-  };
+  if (userError) return <div className="p-6 text-red-500">Error loading profile: {userError.message}</div>;
+  if (userLoading) return <div className="p-6 text-gray-500">Loading your dashboard...</div>;
 
   return (
-    <div className="space-y-8">
-      <DashboardHeader
-        name={displayName}
-        totalApplications={applications.length}
-        totalJobs={jobs.length}
-        refreshing={isRefreshing}
-        onRefresh={refreshAll}
-      />
+    <main className="flex flex-col gap-6 p-6 md:p-8 bg-gray-50 min-h-screen">
+      {/* ✅ Dashboard Header */}
+      <DashboardHeader user={user} />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <section className="space-y-6">
-          <ApplicationsList
-            applications={applications}
-            isLoading={applicationsQuery.isLoading && !applicationsQuery.isError}
-            isError={applicationsQuery.isError}
-            onRetry={() => applicationsQuery.refetch()}
-          />
+      {/* ✅ Analytics Summary */}
+      <AnalyticsSummary />
 
-          <section className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">
-                {jobsT("title")}
-              </h2>
-              <p className="text-sm text-muted-foreground">{jobsT("subtitle")}</p>
-            </div>
-
-            {jobsQuery.isLoading && !jobsQuery.isError ? (
-              <p className="text-sm text-muted-foreground">{jobsT("loading")}</p>
-            ) : null}
-
-            {jobsQuery.isError ? (
-              <div className="flex flex-col items-start gap-3">
-                <p className="text-sm text-destructive">{jobsT("error")}</p>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  onClick={() => jobsQuery.refetch()}
-                >
-                  {jobsT("retry")}
-                </button>
-              </div>
-            ) : null}
-
-            {!jobsQuery.isLoading && !jobsQuery.isError && jobs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{jobsT("empty")}</p>
-            ) : null}
-
-            {!jobsQuery.isError && jobs.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
-            ) : null}
-          </section>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* ✅ User Profile Card */}
+        <section className="md:col-span-1">
+          <UserCard user={user} />
         </section>
 
-        <aside className="space-y-6">
-          <UserCard user={profileQuery.data} />
-          <AssistantPanel profileId={profileQuery.data.id} />
-        </aside>
+        {/* ✅ Job Applications */}
+        <section className="md:col-span-2 space-y-6">
+          <ApplicationsList
+            applications={applications || []}
+            isLoading={appsLoading}
+            error={appsError}
+            refetch={refetchApps}
+          />
+
+          {/* ✅ Recommended Jobs */}
+          <div>
+            <h2 className="text-lg font-semibold mb-2 text-gray-800">Recommended Jobs</h2>
+            {jobsLoading ? (
+              <p className="text-gray-500">Loading jobs...</p>
+            ) : jobsError ? (
+              <p className="text-red-500">Error loading jobs</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {jobs?.length ? (
+                  jobs.map((job: any) => <JobCard key={job.id} job={job} />)
+                ) : (
+                  <p className="text-gray-500">No jobs found.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
       </div>
-    </div>
+
+      {/* ✅ Assistant Panel */}
+      <AssistantPanel />
+    </main>
   );
 }
