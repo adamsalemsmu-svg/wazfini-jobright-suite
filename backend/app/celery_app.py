@@ -25,3 +25,28 @@ celery_app.conf.update(
 def debug_task(self):
     print(f"Request: {self.request!r}")
     return {"status": "debug task executed successfully"}
+
+from celery import signals
+from datetime import datetime
+from sqlalchemy.orm import Session
+from app.db.session import SessionLocal
+from app.models.metrics import Metric
+
+# Dictionary to track start times of tasks
+_task_start_times = {}
+
+@signals.task_prerun.connect
+def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
+    # Record the start time before the task runs
+    _task_start_times[task_id] = datetime.utcnow()
+
+@signals.task_postrun.connect
+def task_postrun_handler(sender=None, task_id=None, task=None, retval=None, state=None, **kwargs):
+    # Compute duration and persist metric after task finishes
+    db: Session = SessionLocal()
+    start = _task_start_times.pop(task_id, datetime.utcnow())
+    duration = (datetime.utcnow() - start).total_seconds()
+    metric = Metric(task_id=task_id, status=state or "unknown", duration=duration)
+    db.add(metric)
+    db.commit()
+    db.close()
