@@ -2,16 +2,30 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/lib/store";
+import { ApplicationsList } from "./components/ApplicationsList";
+import { DashboardHeader } from "./components/DashboardHeader";
+import { JobCard } from "./components/JobCard";
+import { UserCard } from "./components/UserCard";
+import { AssistantPanel } from "./components/assistant/AssistantPanel";
+import { useApplications } from "@/hooks/useApplications";
+import { useJobsFeed } from "@/hooks/useJobsFeed";
 import { useProtectedUserProfile } from "@/hooks/useProtectedUserProfile";
+import { useAuth } from "@/lib/store";
 
 export default function DashboardPage() {
-  const t = useTranslations("Dashboard.profile");
+  const overviewT = useTranslations("Dashboard.home");
+  const jobsT = useTranslations("Dashboard.home.jobs");
   const { user: authUser } = useAuth();
-  const { data: profile, isLoading, error, refetch, isRefetching } = useProtectedUserProfile();
+
+  const profileQuery = useProtectedUserProfile();
+  const applicationsQuery = useApplications();
+  const jobsQuery = useJobsFeed();
+
+  const isProfileLoading = profileQuery.isLoading || profileQuery.isFetching;
+  const hasProfileError = Boolean(profileQuery.error);
 
   const displayName = useMemo(() => {
+    const profile = profileQuery.data;
     return (
       profile?.full_name ??
       profile?.email ??
@@ -19,71 +33,106 @@ export default function DashboardPage() {
       authUser?.email ??
       ""
     );
-  }, [authUser?.email, authUser?.full_name, profile?.email, profile?.full_name]);
+  }, [authUser?.email, authUser?.full_name, profileQuery.data]);
 
-  if (isLoading || isRefetching) {
+  if (isProfileLoading) {
     return (
-      <div className="flex h-full flex-col justify-center gap-2">
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
+      <div className="flex min-h-[40vh] flex-col items-start justify-center gap-3">
+        <p className="text-sm text-muted-foreground">{overviewT("loading")}</p>
       </div>
     );
   }
 
-  if (error) {
+  if (hasProfileError || !profileQuery.data) {
     return (
-      <div className="flex h-full flex-col items-start justify-center gap-4">
-        <p className="text-sm text-destructive">{t("error")}</p>
+      <div className="flex min-h-[40vh] flex-col items-start justify-center gap-4">
+        <p className="text-sm text-destructive">{overviewT("error")}</p>
         <button
           type="button"
           className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          onClick={() => refetch()}
+          onClick={() => profileQuery.refetch()}
         >
-          {t("retry")}
+          {overviewT("retry")}
         </button>
       </div>
     );
   }
 
-  const timeZone = profile?.time_zone || t("timezoneUnset");
+  const applications = applicationsQuery.data ?? [];
+  const jobs = jobsQuery.data ?? [];
+  const isRefreshing =
+    profileQuery.isFetching || applicationsQuery.isFetching || jobsQuery.isFetching;
+
+  const refreshAll = () => {
+    void Promise.all([
+      profileQuery.refetch(),
+      applicationsQuery.refetch(),
+      jobsQuery.refetch(),
+    ]);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("heading", { name: displayName })}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subheading")}</p>
-      </div>
+    <div className="space-y-8">
+      <DashboardHeader
+        name={displayName}
+        totalApplications={applications.length}
+        totalJobs={jobs.length}
+        refreshing={isRefreshing}
+        onRefresh={refreshAll}
+      />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("details.title")}</CardTitle>
-            <CardDescription>{t("details.subtitle")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div>
-              <p className="font-medium text-muted-foreground">{t("details.email")}</p>
-              <p className="font-semibold">{profile?.email}</p>
-            </div>
-            <div>
-              <p className="font-medium text-muted-foreground">{t("details.timezone")}</p>
-              <p className="font-semibold">{timeZone}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <section className="space-y-6">
+          <ApplicationsList
+            applications={applications}
+            isLoading={applicationsQuery.isLoading && !applicationsQuery.isError}
+            isError={applicationsQuery.isError}
+            onRetry={() => applicationsQuery.refetch()}
+          />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("activity.title")}</CardTitle>
-            <CardDescription>{t("activity.subtitle")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>{t("activity.tip1")}</p>
-            <p>{t("activity.tip2")}</p>
-            <p>{t("activity.tip3")}</p>
-          </CardContent>
-        </Card>
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold text-foreground">
+                {jobsT("title")}
+              </h2>
+              <p className="text-sm text-muted-foreground">{jobsT("subtitle")}</p>
+            </div>
+
+            {jobsQuery.isLoading && !jobsQuery.isError ? (
+              <p className="text-sm text-muted-foreground">{jobsT("loading")}</p>
+            ) : null}
+
+            {jobsQuery.isError ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-destructive">{jobsT("error")}</p>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => jobsQuery.refetch()}
+                >
+                  {jobsT("retry")}
+                </button>
+              </div>
+            ) : null}
+
+            {!jobsQuery.isLoading && !jobsQuery.isError && jobs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{jobsT("empty")}</p>
+            ) : null}
+
+            {!jobsQuery.isError && jobs.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {jobs.map((job) => (
+                  <JobCard key={job.id} job={job} />
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </section>
+
+        <aside className="space-y-6">
+          <UserCard user={profileQuery.data} />
+          <AssistantPanel profileId={profileQuery.data.id} />
+        </aside>
       </div>
     </div>
   );

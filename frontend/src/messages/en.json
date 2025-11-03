@@ -92,6 +92,101 @@
         "tip3": "Track interviews and automate follow-up reminders."
       }
     },
+    "home": {
+      "loading": "Loading your dashboard…",
+      "error": "We couldn't load your dashboard data.",
+      "retry": "Try again",
+      "header": {
+        "title": "Welcome back, {name}",
+        "subtitle": "Track your search progress and stay organised.",
+        "actions": {
+          "refresh": "Refresh",
+          "refreshing": "Refreshing…",
+          "profile": "View profile"
+        },
+        "stats": {
+          "applications": {
+            "label": "Applications",
+            "caption": "Tracked across all statuses"
+          },
+          "jobs": {
+            "label": "Job matches",
+            "caption": "Opportunities curated for you"
+          }
+        }
+      },
+      "applications": {
+        "title": "Recent applications",
+        "subtitle": "Keep an eye on where you've applied.",
+        "loading": "Loading applications…",
+        "error": "We couldn't load applications right now.",
+        "retry": "Try again",
+        "empty": "You haven't tracked any applications yet.",
+        "unknownDate": "Date unavailable",
+        "source": "Source: {value}",
+        "status": {
+          "draft": "Draft",
+          "applied": "Applied",
+          "interviewing": "Interviewing",
+          "offer": "Offer",
+          "rejected": "Rejected",
+          "unknown": "Unknown"
+        }
+      },
+      "jobs": {
+        "title": "Recommended jobs",
+        "subtitle": "Suggested roles based on your profile.",
+        "loading": "Loading job recommendations…",
+        "error": "We couldn't load job recommendations right now.",
+        "retry": "Try again",
+        "empty": "No recommendations yet. Check back soon.",
+        "unknownDate": "Date unavailable",
+        "salary": "{value}",
+        "posted": "Posted {value}",
+        "source": "Source: {value}",
+        "cta": "View job"
+      },
+      "userCard": {
+        "title": "Your profile snapshot",
+        "subtitle": "Synced from your Wazifni account.",
+        "fields": {
+          "name": "Name",
+          "email": "Email",
+          "locale": "Locale",
+          "timezone": "Time zone"
+        },
+        "fallbacks": {
+          "name": "—",
+          "email": "—",
+          "timezone": "Not set"
+        },
+        "cta": "Manage profile"
+      }
+    },
+    "assistant": {
+      "title": "AI Assistant",
+      "subtitle": "Penguin is ready to help with your job search.",
+      "toggle": {
+        "open": "Open chat",
+        "close": "Hide chat"
+      },
+      "empty": "Ask a question about job searches, applications, or interviews.",
+      "typing": "Penguin is thinking…",
+      "placeholder": "Ask Penguin for tips, e.g. “How can I tailor my CV for a data analyst role?”",
+      "charCount": "{value} characters left",
+      "cancel": "Stop",
+      "clear": "Clear history",
+      "send": "Send",
+      "sending": "Sending…",
+      "dismiss": "Dismiss",
+      "confirmClear": "Clear this conversation? This action cannot be undone.",
+      "errors": {
+        "generic": "We couldn’t reach Penguin. Try again in a moment.",
+        "unauthorized": "Please sign in again to chat with Penguin.",
+        "cancelled": "Reply cancelled.",
+        "short": "error"
+      }
+    },
     "welcome": "Hello {name}",
     "subtitle": "All your career activity at a glance.",
     "tips": {

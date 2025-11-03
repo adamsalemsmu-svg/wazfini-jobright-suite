@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api";
+import { apiGetAuthorized } from "@/lib/api";
 import { useAuth } from "@/lib/store";
 
 export type UserProfile = {
@@ -18,11 +18,18 @@ export type UserProfile = {
 export function useProtectedUserProfile() {
   const locale = useLocale();
   const router = useRouter();
-  const { setUser, logout } = useAuth();
+  const { token, setUser, logout } = useAuth();
 
   const query = useQuery<UserProfile, Error>({
     queryKey: ["me"],
-    queryFn: () => apiGet<UserProfile>("/users/me"),
+    queryFn: () => {
+      if (!token) {
+        throw new Error("API Error 401");
+      }
+
+      return apiGetAuthorized<UserProfile>("/users/me", token);
+    },
+    enabled: Boolean(token),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
