@@ -20,6 +20,7 @@ import logging
 from .api.routes_metrics import router as metrics_router
 
 
+from .api.routes_analytics import router as analytics_router
 class RequestTimingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         start = time.time()
@@ -62,6 +63,7 @@ app.include_router(metrics_router)
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(analytics_router)
 
 
 @app.get("/users/me", response_model=UserOut, tags=["Users"])
