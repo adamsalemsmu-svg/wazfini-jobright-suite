@@ -14,6 +14,21 @@ from .core.logging import configure_logging
 from .middleware import RequestContextMiddleware
 from .models import Application, User
 from .schemas import ApplicationOut, UserOut
+from starlette.middleware.base import BaseHTTPMiddleware
+import time
+import logging
+from .api.routes_metrics import router as metrics_router
+
+
+class RequestTimingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        duration = round(time.time() - start, 3)
+        logging.info(f"{request.method} {request.url.path} completed in {duration}s")
+        response.headers["X-Response-Time"] = str(duration)
+        return response
+
 
 configure_logging()
 
@@ -40,6 +55,10 @@ if settings.cors_origins:
     )
 
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(RequestTimingMiddleware)
+
+
+app.include_router(metrics_router)
 
 app.include_router(health_router)
 app.include_router(auth_router)
