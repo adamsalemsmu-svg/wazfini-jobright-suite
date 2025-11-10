@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, func
-from app.db.base_class import Base
+from app.core.db import Base
 
 
 class Metric(Base):
