@@ -32,10 +32,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install -g vercel
-      - run: |
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Deploy to Vercel (Production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
           cd frontend
-          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --org-id=${{ secrets.VERCEL_ORG_ID }} --project-id=${{ secrets.VERCEL_PROJECT_ID }}
+          echo "Deploying from: $(pwd)"
+          vercel --prod --token="${VERCEL_TOKEN}" --yes
 
   staging:
     needs: verify
@@ -46,7 +51,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install -g vercel
-      - run: |
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Deploy to Vercel (Preview)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
           cd frontend
-          vercel --previews --token=${{ secrets.VERCEL_TOKEN }} --org-id=${{ secrets.VERCEL_ORG_ID }} --project-id=${{ secrets.VERCEL_PROJECT_ID }}
+          echo "Deploying from: $(pwd)"
+          echo "Verifying Next.js in package.json:"
+          grep -q '"next"' package.json && echo "✓ Next.js found" || echo "✗ Next.js not found"
+          vercel --token="${VERCEL_TOKEN}" --yes
