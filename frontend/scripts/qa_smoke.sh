@@ -7,7 +7,7 @@ set -euo pipefail
 
 # -------- CONFIG --------
 FRONTEND_URL=${FRONTEND_URL:-"https://wazifni-frontend-staging.vercel.app"}
-BACKEND_URL=${BACKEND_URL:-"https://api.wazifni.ai"}
+BACKEND_URL=${BACKEND_URL:-"https://wazifni-backend.onrender.com"}
 DASHBOARD_PATH="/en/dashboard"
 JOBS_API_PATH="/jobs/run"
 
