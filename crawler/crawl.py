@@ -64,12 +64,7 @@ async def fetch_jd(url, client):
     soup = BeautifulSoup(html, "html.parser")
     title = soup.select_one("h1") or soup.select_one("h2")
     title = title.get_text(strip=True) if title else "Job"
-    container = (
-        soup.select_one("#content")
-        or soup.select_one("#job")
-        or soup.select_one("section")
-        or soup
-    )
+    container = soup.select_one("#content") or soup.select_one("#job") or soup.select_one("section") or soup
     jd_text = container.get_text("\n", strip=True)[:200000]
     return title, jd_text
 

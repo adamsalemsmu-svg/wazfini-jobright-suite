@@ -15,9 +15,7 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-async def store_refresh_token(
-    redis: Redis, *, user_id: int, jti: str, expires_at: datetime
-) -> None:
+async def store_refresh_token(redis: Redis, *, user_id: int, jti: str, expires_at: datetime) -> None:
     key = _ACTIVE_KEY.format(user_id=user_id)
     await redis.zadd(key, {jti: expires_at.timestamp()})
     await redis.expire(key, int(settings.refresh_token_ttl.total_seconds()))
@@ -34,9 +32,7 @@ async def refresh_token_is_active(redis: Redis, *, user_id: int, jti: str) -> bo
     return True
 
 
-async def mark_refresh_token_revoked(
-    redis: Redis, *, user_id: int, jti: str, expires_at: datetime
-) -> None:
+async def mark_refresh_token_revoked(redis: Redis, *, user_id: int, jti: str, expires_at: datetime) -> None:
     key = _ACTIVE_KEY.format(user_id=user_id)
     await redis.zrem(key, jti)
     ttl = max(int(expires_at.timestamp() - _now().timestamp()), 1)

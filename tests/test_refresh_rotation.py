@@ -22,9 +22,7 @@ def test_refresh_rotation_and_reuse_detection(client: TestClient, create_user) -
     reuse_resp = client.post("/auth/refresh", json={"refresh_token": first_refresh})
     assert reuse_resp.status_code == 401
 
-    second_attempt = client.post(
-        "/auth/refresh", json={"refresh_token": rotated_refresh}
-    )
+    second_attempt = client.post("/auth/refresh", json={"refresh_token": rotated_refresh})
     assert second_attempt.status_code == 401
 
     relogin = client.post("/auth/login", json={"email": email, "password": password})

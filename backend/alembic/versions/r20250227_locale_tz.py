@@ -20,12 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Add columns if missing (safe for existing production DBs)
-    op.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT 'en'"
-    )
-    op.execute(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS time_zone VARCHAR(50) DEFAULT 'UTC'"
-    )
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(10) DEFAULT 'en'")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS time_zone VARCHAR(50) DEFAULT 'UTC'")
 
 
 def downgrade() -> None:

@@ -12,12 +12,8 @@ _logger = logging.getLogger("requests")
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
-    ) -> Response:
-        request_id = (
-            request.headers.get("x-request-id") or logging_core.new_request_id()
-        )
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
+        request_id = request.headers.get("x-request-id") or logging_core.new_request_id()
         logging_core.set_request_id(request_id)
         try:
             response = await call_next(request)

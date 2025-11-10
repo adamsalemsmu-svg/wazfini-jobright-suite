@@ -38,9 +38,7 @@ class LoginGuard:
                 await self.redis.expire(key, self.lockout_ttl_seconds)
             max_attempts = max(max_attempts, attempts)
             if attempts > self.limit:
-                await self.redis.setex(
-                    _LOCK_KEY.format(identifier=ident), self.lockout_ttl_seconds, 1
-                )
+                await self.redis.setex(_LOCK_KEY.format(identifier=ident), self.lockout_ttl_seconds, 1)
         return max_attempts
 
     async def clear_attempts(self, ip: str, username: str) -> None:

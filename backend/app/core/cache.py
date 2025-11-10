@@ -28,9 +28,7 @@ async def get_redis() -> AsyncGenerator[Redis, None]:
                 parsed = urlparse(settings.REDIS_URL)
                 if parsed.scheme in {"fakeredis", "memory"}:
                     if fakeredis is None:
-                        raise RuntimeError(
-                            "fakeredis is not installed but REDIS_URL requests it"
-                        )
+                        raise RuntimeError("fakeredis is not installed but REDIS_URL requests it")
                     _redis_client = fakeredis.FakeRedis(decode_responses=True)
                 else:
                     _redis_client = Redis.from_url(

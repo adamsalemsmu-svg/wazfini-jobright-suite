@@ -21,11 +21,7 @@ def _build_engine_url(raw: str) -> str:
 
 
 raw_url = settings.DATABASE_URL
-connect_args = (
-    {"check_same_thread": False}
-    if raw_url.startswith("sqlite") or raw_url.startswith("sqlite+")
-    else {}
-)
+connect_args = {"check_same_thread": False} if raw_url.startswith("sqlite") or raw_url.startswith("sqlite+") else {}
 
 engine = create_engine(
     _build_engine_url(raw_url),
