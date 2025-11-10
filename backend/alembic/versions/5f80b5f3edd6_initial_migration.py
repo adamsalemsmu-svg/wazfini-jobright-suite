@@ -78,9 +78,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_applications_user_id"), "applications", ["user_id"], unique=False
-    )
+    op.create_index(op.f("ix_applications_user_id"), "applications", ["user_id"], unique=False)
     op.create_table(
         "audit_events",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -96,9 +94,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        op.f("ix_audit_events_user_id"), "audit_events", ["user_id"], unique=False
-    )
+    op.create_index(op.f("ix_audit_events_user_id"), "audit_events", ["user_id"], unique=False)
     # ### end Alembic commands ###
 
 

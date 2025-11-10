@@ -34,9 +34,7 @@ async def search_jobs(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(require_db),
 ) -> list[JobOut]:
-    user_apps = db.scalars(
-        select(Application).where(Application.user_id == current_user.id)
-    ).all()
+    user_apps = db.scalars(select(Application).where(Application.user_id == current_user.id)).all()
     state_map: Dict[str, JobState] = {}
     for app in user_apps:
         key = _normalize_key(app.title, app.company)
@@ -55,10 +53,7 @@ async def search_jobs(
 
     query_text = filters.q or ""
     location = filters.location or "Dubai"
-    tasks = [
-        _fetch_from_adapter(adapter, query=query_text, location=location)
-        for adapter in ADAPTERS
-    ]
+    tasks = [_fetch_from_adapter(adapter, query=query_text, location=location) for adapter in ADAPTERS]
     results_nested = await asyncio.gather(*tasks)
 
     jobs: list[JobOut] = []

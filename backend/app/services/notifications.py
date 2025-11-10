@@ -44,11 +44,7 @@ def notify_email(*, to: str, subject: str, body: str) -> bool:
 
 
 def notify_sms(*, to: str, body: str) -> bool:
-    if (
-        not settings.TWILIO_ACCOUNT_SID
-        or not settings.TWILIO_AUTH_TOKEN
-        or not settings.TWILIO_FROM_NUMBER
-    ):
+    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_FROM_NUMBER:
         logger.info(
             "notification_sms_skipped",
             extra={"reason": "twilio_not_configured", "recipient": anonymize(to)},

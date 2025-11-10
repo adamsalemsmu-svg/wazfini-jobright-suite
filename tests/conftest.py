@@ -137,9 +137,7 @@ class InMemoryRedis:
             self._zsets.pop(key, None)
         return 1
 
-    async def zrange(
-        self, key: str, start: int, end: int, *, withscores: bool = False
-    ) -> Iterable[Any]:
+    async def zrange(self, key: str, start: int, end: int, *, withscores: bool = False) -> Iterable[Any]:
         self._purge()
         zset = self._zsets.get(key)
         if not zset:
@@ -183,9 +181,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(
-    bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
-)
+TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -214,9 +210,7 @@ def redis_client() -> Generator[InMemoryRedis, None, None]:
 
 
 @pytest.fixture()
-def client(
-    db_session: Session, redis_client: InMemoryRedis
-) -> Generator[TestClient, None, None]:
+def client(db_session: Session, redis_client: InMemoryRedis) -> Generator[TestClient, None, None]:
     def override_db() -> Generator[Session, None, None]:
         session = TestingSessionLocal()
         try:
@@ -239,9 +233,7 @@ def client(
 
 @pytest.fixture()
 def create_user(db_session: Session):
-    def _create(
-        email: str = "test@example.com", password: str = "StrongPass!123"
-    ) -> User:
+    def _create(email: str = "test@example.com", password: str = "StrongPass!123") -> User:
         user = User(email=email, password_hash=hash_password(password))
         db_session.add(user)
         db_session.commit()

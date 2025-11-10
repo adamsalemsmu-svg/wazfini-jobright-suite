@@ -82,9 +82,7 @@ async def list_applications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(require_db),
 ) -> list[Application]:
-    return db.scalars(
-        select(Application).where(Application.user_id == current_user.id)
-    ).all()
+    return db.scalars(select(Application).where(Application.user_id == current_user.id)).all()
 
 
 @app.on_event("shutdown")

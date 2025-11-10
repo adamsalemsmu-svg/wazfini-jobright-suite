@@ -12,15 +12,11 @@ from .config import settings
 
 
 _REQUEST_ID_ATTR = "request_id"
-_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "request_id", default=None
-)
+_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("request_id", default=None)
 
 
 class RequestIdFilter(logging.Filter):
-    def filter(
-        self, record: logging.LogRecord
-    ) -> bool:  # pragma: no cover - simple filter
+    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - simple filter
         setattr(record, _REQUEST_ID_ATTR, _request_id.get())
         return True
 
@@ -50,9 +46,7 @@ def configure_logging() -> None:
     handler.setFormatter(formatter)
     handler.addFilter(RequestIdFilter())
 
-    logging.basicConfig(
-        level=_resolve_level(settings.LOG_LEVEL), handlers=[handler], force=True
-    )
+    logging.basicConfig(level=_resolve_level(settings.LOG_LEVEL), handlers=[handler], force=True)
     logging.getLogger("uvicorn.access").handlers = []
 
 

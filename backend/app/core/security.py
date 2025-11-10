@@ -84,9 +84,7 @@ def create_refresh_token(subject: str) -> Dict[str, Any]:
 
 def decode_token(token: str) -> Dict[str, Any]:
     try:
-        return jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError as exc:
         raise InvalidTokenError(str(exc)) from exc
 

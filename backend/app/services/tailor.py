@@ -74,9 +74,7 @@ def _sha256(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def _cache_key(
-    resume_text: str, job_text: str, language: str, style: str, model: str
-) -> str:
+def _cache_key(resume_text: str, job_text: str, language: str, style: str, model: str) -> str:
     return "|".join(
         [
             _sha256(resume_text),
