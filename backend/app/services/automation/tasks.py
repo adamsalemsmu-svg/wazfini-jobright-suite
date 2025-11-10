@@ -31,7 +31,7 @@ def automation_run(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
             resume=resume,
             headless=settings.APP_ENV != "local",
         )
-    except Exception as exc:  # pragma: no cover - we log and surface failure
+  except Exception:  # pragma: no cover - we log and surface failure
         status = "failed"
         logger.exception("automation_failed", extra={"job_url": job_url, "platform": platform.value})
         raise
