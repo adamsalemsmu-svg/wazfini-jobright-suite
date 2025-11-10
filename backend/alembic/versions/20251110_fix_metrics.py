@@ -1,6 +1,6 @@
 """fix metrics schema - add indexes and nullable constraints
 
-Revision ID: 20251110_054231_fix_metrics_schema
+Revision ID: 20251110_fix_metrics
 Revises: 20251110_add_user_resume_fields
 Create Date: 2025-11-10T05:42:31.606175
 """
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = "20251110_054231_fix_metrics_schema"
+revision: str = "20251110_fix_metrics"
 down_revision: str | None = "20251110_add_user_resume_fields"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
