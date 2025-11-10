@@ -27,7 +27,9 @@ def _load_resume(path: str | None) -> dict | None:
     }
 
 
-def run(job_url: str, profile_json: str, resume: str | None = None, *, headless: bool = True) -> None:
+def run(
+    job_url: str, profile_json: str, resume: str | None = None, *, headless: bool = True
+) -> None:
     profile = _load_profile(profile_json)
     resume_payload = _load_resume(resume)
     run_automation(

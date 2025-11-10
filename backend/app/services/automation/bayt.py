@@ -69,7 +69,13 @@ def _attach_files(page: Page, resume_path: Optional[str]) -> None:
         file_inputs.first.set_input_files(resume_path)
 
 
-def run(job_url: str, profile: Mapping[str, object], resume_path: Optional[str] = None, *, headless: bool = True) -> None:
+def run(
+    job_url: str,
+    profile: Mapping[str, object],
+    resume_path: Optional[str] = None,
+    *,
+    headless: bool = True,
+) -> None:
     profile_data = sanitize_profile(profile)
     with playwright_session(headless=headless) as (_, _, page):
         page.goto(job_url, wait_until="domcontentloaded")
