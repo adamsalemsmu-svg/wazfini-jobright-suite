@@ -1,81 +1,52 @@
-name: Frontend CI / Vercel
+name: Frontend CI + Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
-  build-test:
-    name: Build & Test (frontend)
+  verify:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install
-        run: npm ci || npm i --no-audit --no-fund
-      - name: Lint (skip if none)
-        run: npm run lint --if-present || echo 'no lint script'
-      - name: Unit tests (skip if none)
-        run: npm test --if-present || echo 'no tests'
-      - name: Build
-        env:
-          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
-        run: npm run build
+          node-version: 20
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
 
-  deploy-vercel:
-    needs: [build-test]
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check required secrets
-        id: secretcheck
-        run: |
-          missing=0
-          [ -z "${{ secrets.VERCEL_TOKEN }}" ] && echo "VERCEL_TOKEN missing" && missing=1
-          [ -z "${{ secrets.VERCEL_ORG_ID }}" ] && echo "VERCEL_ORG_ID missing" && missing=1
-          [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ] && echo "VERCEL_PROJECT_ID missing" && missing=1
-          echo "missing=$missing" >> "$GITHUB_OUTPUT"
-      - name: Vercel debug (whoami & projects)
-        if: ${{ steps.secretcheck.outputs.missing == '0' }}
-        run: |
-          npx -y vercel@latest whoami --token "${{ secrets.VERCEL_TOKEN }}"
-          npx -y vercel@latest projects ls --token "${{ secrets.VERCEL_TOKEN }}" | head -n 20 || true
-      - name: Deploy to Vercel (Preview) with retry
-        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref != 'refs/heads/main' }}
-        uses: nick-fields/retry@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          timeout_minutes: 15
-          max_attempts: 3
-          command: |
-            npx -y vercel@latest deploy \
-              --confirm \
-              --token "${{ secrets.VERCEL_TOKEN }}" \
-              --scope "${{ secrets.VERCEL_ORG_ID }}" \
-              --cwd frontend
-      - name: Deploy to Vercel (Prod) with retry
-        if: ${{ steps.secretcheck.outputs.missing == '0' && github.ref == 'refs/heads/main' }}
-        uses: nick-fields/retry@v2
+          node-version: 20
+      - run: npm install -g vercel
+      - run: |
+          cd frontend
+          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --org-id=${{ secrets.VERCEL_ORG_ID }} --project-id=${{ secrets.VERCEL_PROJECT_ID }}
+
+  staging:
+    needs: verify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          timeout_minutes: 15
-          max_attempts: 3
-          command: |
-            npx -y vercel@latest deploy \
-              --prod --confirm \
-              --token "${{ secrets.VERCEL_TOKEN }}" \
-              --scope "${{ secrets.VERCEL_ORG_ID }}" \
-              --cwd frontend
+          node-version: 20
+      - run: npm install -g vercel
+      - run: |
+          cd frontend
+          vercel --previews --token=${{ secrets.VERCEL_TOKEN }} --org-id=${{ secrets.VERCEL_ORG_ID }} --project-id=${{ secrets.VERCEL_PROJECT_ID }}
