@@ -75,6 +75,22 @@ export async function apiPostAuthorized<TResponse>(
   return handleResponse<TResponse>(res);
 }
 
+export async function apiPostFormAuthorized<TResponse>(
+  path: string,
+  formData: FormData,
+  token: string,
+  extraHeaders: HeadersInit = {}
+): Promise<TResponse> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: buildAuthHeaders(token, extraHeaders),
+    body: formData,
+    credentials: "include",
+  });
+
+  return handleResponse<TResponse>(res);
+}
+
 export interface StreamResult<TParsed = unknown> {
   fullText: string;
   parsed?: TParsed;

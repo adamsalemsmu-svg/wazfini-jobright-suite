@@ -36,6 +36,44 @@ export function UserCard({ user }: UserCardProps) {
           <p className="font-medium text-muted-foreground">{t("fields.timezone")}</p>
           <p className="font-semibold">{user?.time_zone ?? t("fallbacks.timezone")}</p>
         </div>
+        {user?.phone ? (
+          <div>
+            <p className="font-medium text-muted-foreground">{t("fields.phone")}</p>
+            <p className="font-semibold">{user.phone}</p>
+          </div>
+        ) : null}
+        {user?.linkedin_url ? (
+          <div>
+            <p className="font-medium text-muted-foreground">{t("fields.linkedin")}</p>
+            <Link
+              href={user.linkedin_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              {user.linkedin_url}
+            </Link>
+          </div>
+        ) : null}
+        {user?.github_url ? (
+          <div>
+            <p className="font-medium text-muted-foreground">{t("fields.github")}</p>
+            <Link
+              href={user.github_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              {user.github_url}
+            </Link>
+          </div>
+        ) : null}
+        {user?.resume_skills?.length ? (
+          <div>
+            <p className="font-medium text-muted-foreground">{t("fields.skills")}</p>
+            <p className="font-semibold">{user.resume_skills.join(", ")}</p>
+          </div>
+        ) : null}
         <div>
           <Link
             href={`/${locale}/dashboard/profile`}

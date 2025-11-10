@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from .api.deps import get_current_user, require_db
 from .api.routes_auth import router as auth_router
 from .api.routes_health import router as health_router
+from .api.routes_jobs import router as jobs_router
+from .api.routes_uploads import router as uploads_router
 from .core.cache import close_redis
 from .core.config import settings
 from .core.logging import configure_logging
@@ -64,6 +66,8 @@ app.include_router(metrics_router)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(analytics_router)
+app.include_router(jobs_router)
+app.include_router(uploads_router)
 
 
 @app.get("/users/me", response_model=UserOut, tags=["Users"])

@@ -1,0 +1,14 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0F172A" />
+      <stop offset="1" stop-color="#1E3A8A" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)" />
+  <g fill="#F8FAFC">
+    <text x="120" y="200" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="600">Wazifni Beta Launch</text>
+    <text x="120" y="280" font-family="Inter, Arial, sans-serif" font-size="28" opacity="0.85">Automation • Analytics • Career Insights</text>
+    <text x="120" y="360" font-family="Inter, Arial, sans-serif" font-size="22" opacity="0.75">Queue automated applications, track metrics, and stay informed with instant notifications.</text>
+  </g>
+</svg>

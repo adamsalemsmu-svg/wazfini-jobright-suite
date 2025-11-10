@@ -1,5 +1,13 @@
-from celery import Celery
+from __future__ import annotations
+
 import os
+from datetime import datetime
+
+from celery import Celery, signals
+from sqlalchemy.orm import Session
+
+from .core.db import SessionLocal
+from .models.metrics import Metric
 
 # Load broker and result backend from environment variables
 broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -20,33 +28,35 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+celery_app.autodiscover_tasks(["app.services.automation"])
+
 
 @celery_app.task(bind=True)
 def debug_task(self):
     print(f"Request: {self.request!r}")
     return {"status": "debug task executed successfully"}
 
-from celery import signals
-from datetime import datetime
-from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
-from app.models.metrics import Metric
 
 # Dictionary to track start times of tasks
-_task_start_times = {}
+_task_start_times: dict[str, datetime] = {}
+
 
 @signals.task_prerun.connect
 def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
-    # Record the start time before the task runs
-    _task_start_times[task_id] = datetime.utcnow()
+    if task_id:
+        _task_start_times[task_id] = datetime.utcnow()
+
 
 @signals.task_postrun.connect
 def task_postrun_handler(sender=None, task_id=None, task=None, retval=None, state=None, **kwargs):
-    # Compute duration and persist metric after task finishes
+    if not task_id:
+        return
     db: Session = SessionLocal()
-    start = _task_start_times.pop(task_id, datetime.utcnow())
-    duration = (datetime.utcnow() - start).total_seconds()
-    metric = Metric(task_id=task_id, status=state or "unknown", duration=duration)
-    db.add(metric)
-    db.commit()
-    db.close()
+    try:
+        start = _task_start_times.pop(task_id, datetime.utcnow())
+        duration = (datetime.utcnow() - start).total_seconds()
+        metric = Metric(task_id=task_id, status=state or "unknown", duration=duration)
+        db.add(metric)
+        db.commit()
+    finally:
+        db.close()

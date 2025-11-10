@@ -82,7 +82,23 @@
         "title": "تفاصيل الحساب",
         "subtitle": "معلومات متزامنة من ملفك في وظيفني.",
         "email": "البريد الإلكتروني",
-        "timezone": "المنطقة الزمنية"
+        "timezone": "المنطقة الزمنية",
+        "phone": "الهاتف",
+        "linkedin": "لينكدإن",
+        "github": "غيت هب",
+        "skills": "المهارات"
+      },
+      "resume": {
+        "title": "تحليلات السيرة الذاتية",
+        "subtitle": "ارفع سيرتك لتحديث بيانات الاتصال والمهارات تلقائياً.",
+        "uploadCta": "رفع",
+        "uploading": "جاري الرفع...",
+        "error": "تعذّر تحليل السيرة الذاتية. جرّب ملفاً آخر.",
+        "detectedEmail": "البريد المستخرج: {value}",
+        "detectedPhone": "رقم الهاتف المستخرج: {value}",
+        "detectedLinkedin": "حساب لينكدإن المستخرج: {value}",
+        "detectedGithub": "حساب غيت هب المستخرج: {value}",
+        "detectedSkills": "المهارات المستخرجة: {value}"
       },
       "activity": {
         "title": "ابدأ الآن",
@@ -144,7 +160,18 @@
         "salary": "{value}",
         "posted": "نُشرت {value}",
         "source": "المصدر: {value}",
-        "cta": "عرض الوظيفة"
+        "cta": "عرض الوظيفة",
+        "states": {
+          "recommended": "موصى بها",
+          "saved": "محفوظة",
+          "applied": "تم التقديم"
+        },
+        "automationCta": "تقديم تلقائي",
+        "automationPending": "جاري الإرسال...",
+        "automationQueued": "تمت جدولة الأتمتة",
+        "automationQueuedMessage": "المهمة {id} قيد المعالجة",
+        "automationFailed": "فشل في الأتمتة",
+        "automationUnavailable": "الأتمتة غير متاحة لهذا المصدر"
       },
       "userCard": {
         "title": "لمحة عن ملفك",
@@ -153,7 +180,11 @@
           "name": "الاسم",
           "email": "البريد الإلكتروني",
           "locale": "اللغة",
-          "timezone": "المنطقة الزمنية"
+          "timezone": "المنطقة الزمنية",
+          "phone": "الهاتف",
+          "linkedin": "لينكدإن",
+          "github": "غيت هب",
+          "skills": "المهارات"
         },
         "fallbacks": {
           "name": "—",

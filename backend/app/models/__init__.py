@@ -27,6 +27,10 @@ class User(Base):
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255))
+    phone: Mapped[Optional[str]] = mapped_column(String(32))
+    linkedin_url: Mapped[Optional[str]] = mapped_column(String(255))
+    github_url: Mapped[Optional[str]] = mapped_column(String(255))
+    resume_skills: Mapped[Optional[list[str]]] = mapped_column(JSON, default=list)
     locale: Mapped[str] = mapped_column(String(10), default="en")
     time_zone: Mapped[str] = mapped_column(String(50), default="UTC")
     created_at: Mapped[datetime] = mapped_column(

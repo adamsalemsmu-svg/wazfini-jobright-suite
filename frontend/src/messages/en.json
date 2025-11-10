@@ -51,6 +51,35 @@
       "loading": "Submitting…"
     }
   },
+  "Launch": {
+    "badge": "Beta",
+    "title": "Launch your job search with Wazifni",
+    "subtitle": "Automation, analytics, and proactive notifications built for ambitious professionals across MENA.",
+    "ctaDashboard": "Enter the app",
+    "ctaDemo": "Book a live demo",
+    "sections": {
+      "automation": {
+        "title": "Automation engine",
+        "copy": "Queue Greenhouse, Workday, and Bayt applications in a single click with secure autofill and resume handling."
+      },
+      "analytics": {
+        "title": "Analytics summary",
+        "copy": "Track throughput, success rates, and task durations with real-time dashboards fed by Celery metrics."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "copy": "Get instant SendGrid email, Twilio SMS, and in-app alerts when automations finish or fail."
+      },
+      "security": {
+        "title": "Security first",
+        "copy": "All profile data is encrypted at rest, with secure task serialization and expiring secrets for automation."
+      }
+    },
+    "footer": {
+      "contact": "Need a custom rollout? Email {email}",
+      "legal": "© Wazifni {year}. All rights reserved."
+    }
+  },
   "Navigation": {
     "dashboard": "Dashboard",
     "logout": "Log out",
@@ -82,7 +111,23 @@
         "title": "Account details",
         "subtitle": "Information synced from your Wazifni profile.",
         "email": "Email",
-        "timezone": "Time zone"
+        "timezone": "Time zone",
+        "phone": "Phone",
+        "linkedin": "LinkedIn",
+        "github": "GitHub",
+        "skills": "Skills"
+      },
+      "resume": {
+        "title": "Resume insights",
+        "subtitle": "Upload your latest resume to sync contact details and skills.",
+        "uploadCta": "Upload",
+        "uploading": "Uploading…",
+        "error": "We couldn't parse that resume. Try a different file.",
+        "detectedEmail": "Detected email: {value}",
+        "detectedPhone": "Detected phone: {value}",
+        "detectedLinkedin": "Detected LinkedIn: {value}",
+        "detectedGithub": "Detected GitHub: {value}",
+        "detectedSkills": "Detected skills: {value}"
       },
       "activity": {
         "title": "Get started",
@@ -144,7 +189,18 @@
         "salary": "{value}",
         "posted": "Posted {value}",
         "source": "Source: {value}",
-        "cta": "View job"
+        "cta": "View job",
+        "states": {
+          "recommended": "Recommended",
+          "saved": "Saved",
+          "applied": "Applied"
+        },
+        "automationCta": "Automate apply",
+        "automationPending": "Queuing…",
+        "automationQueued": "Automation queued",
+        "automationQueuedMessage": "Task {id} is processing",
+        "automationFailed": "Automation failed",
+        "automationUnavailable": "Automation unavailable for this source"
       },
       "userCard": {
         "title": "Your profile snapshot",
@@ -153,7 +209,11 @@
           "name": "Name",
           "email": "Email",
           "locale": "Locale",
-          "timezone": "Time zone"
+          "timezone": "Time zone",
+          "phone": "Phone",
+          "linkedin": "LinkedIn",
+          "github": "GitHub",
+          "skills": "Skills"
         },
         "fallbacks": {
           "name": "—",

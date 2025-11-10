@@ -22,6 +22,7 @@ export type JobSummary = {
   apply_url?: string | null;
   description?: string | null;
   source?: string | null;
+  state?: "recommended" | "saved" | "applied";
 };
 
 export function useJobsFeed() {

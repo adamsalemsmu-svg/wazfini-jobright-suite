@@ -31,17 +31,17 @@ def run(job_url: str, profile_json: str, resume: str | None = None, *, headless:
     profile = _load_profile(profile_json)
     resume_payload = _load_resume(resume)
     run_automation(
-        platform=AutomationPlatform.greenhouse,
+        platform=AutomationPlatform.bayt,
         job_url=job_url,
         profile=profile,
         resume=resume_payload,
         headless=headless,
     )
-    print("Autofill completed. Review the form and submit manually.")
+    print("Bayt autofill completed. Review before submitting.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Greenhouse job autofill helper")
+    parser = argparse.ArgumentParser(description="Bayt job autofill helper")
     parser.add_argument("--job-url", required=True)
     parser.add_argument("--profile", required=True)
     parser.add_argument("--resume", default=None)

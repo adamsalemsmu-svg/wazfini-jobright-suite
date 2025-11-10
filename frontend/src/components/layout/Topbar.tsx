@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useAuth } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ export function Topbar() {
       </div>
       <div className={cn("flex items-center gap-2", locale === "ar" && "flex-row-reverse")}
       >
+        <NotificationBell />
         <Button
           variant="outline"
           size="sm"
