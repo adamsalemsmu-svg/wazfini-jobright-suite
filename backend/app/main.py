@@ -23,6 +23,8 @@ from .api.routes_metrics import router as metrics_router
 
 
 from .api.routes_analytics import router as analytics_router
+
+
 class RequestTimingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         start = time.time()

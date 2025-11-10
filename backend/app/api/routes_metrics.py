@@ -5,6 +5,7 @@ from ..models.metrics import Metric
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
+
 @router.get("/summary")
 def get_summary(db: Session = Depends(get_db)):
     total = db.query(Metric).count()

@@ -8,43 +8,45 @@ from pathlib import Path
 
 BACKEND_PATH = Path(__file__).resolve().parents[1] / "backend"
 if str(BACKEND_PATH) not in sys.path:
-	sys.path.insert(0, str(BACKEND_PATH))
+    sys.path.insert(0, str(BACKEND_PATH))
 
 from app.services.automation.runner import AutomationPlatform, run_automation
 
 
 def _load_profile(path: str) -> dict:
-	return json.loads(Path(path).read_text())
+    return json.loads(Path(path).read_text())
 
 
 def _load_resume(path: str | None) -> dict | None:
-	if not path:
-		return None
-	payload = Path(path)
-	return {
-		"filename": payload.name,
-		"content_b64": base64.b64encode(payload.read_bytes()).decode("utf-8"),
-	}
+    if not path:
+        return None
+    payload = Path(path)
+    return {
+        "filename": payload.name,
+        "content_b64": base64.b64encode(payload.read_bytes()).decode("utf-8"),
+    }
 
 
-def run(job_url: str, profile_json: str, resume: str | None = None, *, headless: bool = True) -> None:
-	profile = _load_profile(profile_json)
-	resume_payload = _load_resume(resume)
-	run_automation(
-		platform=AutomationPlatform.workday,
-		job_url=job_url,
-		profile=profile,
-		resume=resume_payload,
-		headless=headless,
-	)
-	print("Workday autofill completed. Review before submitting.")
+def run(
+    job_url: str, profile_json: str, resume: str | None = None, *, headless: bool = True
+) -> None:
+    profile = _load_profile(profile_json)
+    resume_payload = _load_resume(resume)
+    run_automation(
+        platform=AutomationPlatform.workday,
+        job_url=job_url,
+        profile=profile,
+        resume=resume_payload,
+        headless=headless,
+    )
+    print("Workday autofill completed. Review before submitting.")
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Workday job autofill helper")
-	parser.add_argument("--job-url", required=True)
-	parser.add_argument("--profile", required=True)
-	parser.add_argument("--resume", default=None)
-	parser.add_argument("--headless", action="store_true", default=False)
-	args = parser.parse_args()
-	run(args.job_url, args.profile, args.resume, headless=args.headless)
+    parser = argparse.ArgumentParser(description="Workday job autofill helper")
+    parser.add_argument("--job-url", required=True)
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--resume", default=None)
+    parser.add_argument("--headless", action="store_true", default=False)
+    args = parser.parse_args()
+    run(args.job_url, args.profile, args.resume, headless=args.headless)

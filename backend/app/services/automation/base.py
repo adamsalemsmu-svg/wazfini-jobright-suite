@@ -62,7 +62,9 @@ def resume_file(resume: ResumePayload | None) -> Iterator[str | None]:
 
 
 @contextmanager
-def playwright_session(headless: bool = True) -> Iterator[tuple[Browser, BrowserContext, Page]]:
+def playwright_session(
+    headless: bool = True,
+) -> Iterator[tuple[Browser, BrowserContext, Page]]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
         context = browser.new_context()
