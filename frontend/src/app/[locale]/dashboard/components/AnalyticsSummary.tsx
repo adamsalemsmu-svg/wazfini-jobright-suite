@@ -40,9 +40,13 @@ export default function AnalyticsSummary() {
         setMetrics(metricsData);
         setAnalytics(analyticsData);
         setLoading(false);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || 'An error occurred');
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An error occurred');
+        }
         setLoading(false);
       }
     }

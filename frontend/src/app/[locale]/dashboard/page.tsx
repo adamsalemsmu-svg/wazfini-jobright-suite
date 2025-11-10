@@ -2,28 +2,32 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useApplications } from "./hooks/useApplications";
-import { useJobsFeed } from "./hooks/useJobsFeed";
-import { useProtectedUserProfile } from "@/lib/hooks/useProtectedUserProfile";
+import { useApplications } from "@/hooks/useApplications";
+import { useJobsFeed, type JobSummary } from "@/hooks/useJobsFeed";
+import { useProtectedUserProfile } from "@/hooks/useProtectedUserProfile";
 
 import { DashboardHeader } from "./components/DashboardHeader";
 import { ApplicationsList } from "./components/ApplicationsList";
 import { JobCard } from "./components/JobCard";
 import { UserCard } from "./components/UserCard";
-import AssistantPanel from "./components/AssistantPanel";
-import AnalyticsSummary from "./components/AnalyticsSummary"; // ✅ NEW IMPORT
+import { AssistantPanel } from "./components/assistant/AssistantPanel";
+import AnalyticsSummary from "./components/AnalyticsSummary";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading, error: userError } = useProtectedUserProfile();
   const {
-    applications,
+    data: user,
+    isLoading: userLoading,
+    error: userError,
+  } = useProtectedUserProfile();
+  const {
+    data: applications,
     isLoading: appsLoading,
     error: appsError,
     refetch: refetchApps,
   } = useApplications();
   const {
-    jobs,
+    data: jobs,
     isLoading: jobsLoading,
     error: jobsError,
     refetch: refetchJobs,
@@ -40,7 +44,16 @@ export default function DashboardPage() {
   return (
     <main className="flex flex-col gap-6 p-6 md:p-8 bg-gray-50 min-h-screen">
       {/* ✅ Dashboard Header */}
-      <DashboardHeader user={user} />
+      <DashboardHeader
+        name={user?.full_name ?? user?.email ?? ""}
+        totalApplications={applications?.length ?? 0}
+        totalJobs={jobs?.length ?? 0}
+        onRefresh={() => {
+          void refetchApps();
+          void refetchJobs();
+        }}
+        refreshing={appsLoading || jobsLoading}
+      />
 
       {/* ✅ Analytics Summary */}
       <AnalyticsSummary />
@@ -56,8 +69,8 @@ export default function DashboardPage() {
           <ApplicationsList
             applications={applications || []}
             isLoading={appsLoading}
-            error={appsError}
-            refetch={refetchApps}
+            isError={Boolean(appsError)}
+            onRetry={appsError ? () => void refetchApps() : undefined}
           />
 
           {/* ✅ Recommended Jobs */}
@@ -70,7 +83,7 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {jobs?.length ? (
-                  jobs.map((job: any) => <JobCard key={job.id} job={job} />)
+                  jobs.map((job: JobSummary) => <JobCard key={job.id} job={job} />)
                 ) : (
                   <p className="text-gray-500">No jobs found.</p>
                 )}
