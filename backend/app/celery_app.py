@@ -48,7 +48,9 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
 
 
 @signals.task_postrun.connect
-def task_postrun_handler(sender=None, task_id=None, task=None, retval=None, state=None, **kwargs):
+def task_postrun_handler(
+    sender=None, task_id=None, task=None, retval=None, state=None, **kwargs
+):
     if not task_id:
         return
     db: Session = SessionLocal()

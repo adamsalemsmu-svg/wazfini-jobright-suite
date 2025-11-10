@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Mapping, Optional
 
 from celery.utils.log import get_task_logger
@@ -42,7 +41,11 @@ def automation_run(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         if status == "success":
             logger.info(
                 "automation_completed",
-                extra={"job_url": job_url, "platform": platform.value, "status": status},
+                extra={
+                    "job_url": job_url,
+                    "platform": platform.value,
+                    "status": status,
+                },
             )
         if notify_email_target:
             notify_email(

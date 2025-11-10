@@ -23,7 +23,8 @@ def _fill_inputs(page: Page, profile: Mapping[str, Optional[str]]) -> None:
     for idx in range(inputs.count()):
         el = inputs.nth(idx)
         name = " ".join(
-            part for part in (
+            part
+            for part in (
                 el.get_attribute("name"),
                 el.get_attribute("id"),
                 el.get_attribute("aria-label"),
@@ -68,7 +69,13 @@ def _attach_files(page: Page, resume_path: Optional[str]) -> None:
         files.first.set_input_files(resume_path)
 
 
-def run(job_url: str, profile: Mapping[str, object], resume_path: Optional[str] = None, *, headless: bool = True) -> None:
+def run(
+    job_url: str,
+    profile: Mapping[str, object],
+    resume_path: Optional[str] = None,
+    *,
+    headless: bool = True,
+) -> None:
     profile_data = sanitize_profile(profile)
     with playwright_session(headless=headless) as (_, _, page):
         page.goto(job_url, wait_until="domcontentloaded")
