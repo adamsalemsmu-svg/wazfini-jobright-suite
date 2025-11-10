@@ -42,7 +42,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           echo "CI working directory: $(pwd)"
-          npx vercel deploy --prod --token="${VERCEL_TOKEN}" --yes
+          echo "Linking project..."
+          vercel link --yes --token="${VERCEL_TOKEN}" --scope="${VERCEL_ORG_ID}" --project="${VERCEL_PROJECT_ID}"
+          echo "Deploying to production..."
+          vercel deploy --prod --token="${VERCEL_TOKEN}" --yes
 
   staging:
     needs: verify
@@ -65,4 +68,7 @@ jobs:
           echo "CI working directory: $(pwd)"
           echo "Verifying package.json contains Next.js:"
           grep -A 2 '"next"' package.json || echo "WARNING: Next.js not found in package.json"
-          npx vercel deploy --token="${VERCEL_TOKEN}" --yes
+          echo "Linking project..."
+          vercel link --yes --token="${VERCEL_TOKEN}" --scope="${VERCEL_ORG_ID}" --project="${VERCEL_PROJECT_ID}"
+          echo "Deploying..."
+          vercel deploy --token="${VERCEL_TOKEN}" --yes
