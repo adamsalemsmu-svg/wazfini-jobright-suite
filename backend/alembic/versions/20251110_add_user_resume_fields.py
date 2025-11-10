@@ -1,7 +1,7 @@
 """add resume-related fields to users
 
 Revision ID: 20251110_add_user_resume_fields
-Revises: r20251028_users_updated_at
+Revises: r20251103_add_metrics_table
 Create Date: 2025-11-10 00:00:00.000000
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "20251110_add_user_resume_fields"
-down_revision: str | None = "r20251028_users_updated_at"
+down_revision: str | None = "r20251103_add_metrics_table"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
