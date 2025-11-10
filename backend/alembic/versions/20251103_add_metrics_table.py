@@ -26,13 +26,9 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id")),
         sa.Column("job_id", sa.Integer(), nullable=True),
         sa.Column("task_id", sa.String(length=255), nullable=True),
-        sa.Column(
-            "status", sa.String(length=50), nullable=False, server_default="queued"
-        ),
+        sa.Column("status", sa.String(length=50), nullable=False, server_default="queued"),
         sa.Column("duration", sa.Float(), nullable=True),
-        sa.Column(
-            "created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()
-        ),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(), onupdate=sa.func.now()),
     )
     # ### end Alembic commands ###

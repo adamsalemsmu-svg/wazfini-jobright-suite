@@ -19,12 +19,8 @@ depends_on: Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("users", sa.Column("phone", sa.String(length=32), nullable=True))
-    op.add_column(
-        "users", sa.Column("linkedin_url", sa.String(length=255), nullable=True)
-    )
-    op.add_column(
-        "users", sa.Column("github_url", sa.String(length=255), nullable=True)
-    )
+    op.add_column("users", sa.Column("linkedin_url", sa.String(length=255), nullable=True))
+    op.add_column("users", sa.Column("github_url", sa.String(length=255), nullable=True))
     op.add_column("users", sa.Column("resume_skills", sa.JSON(), nullable=True))
 
 

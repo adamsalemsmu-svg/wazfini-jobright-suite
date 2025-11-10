@@ -43,9 +43,7 @@ async def search_jobs(
         else:
             state_map[key] = JobState.applied
 
-    async def _fetch_from_adapter(
-        adapter, query: str, location: str
-    ) -> Iterable[Dict[str, Any]]:
+    async def _fetch_from_adapter(adapter, query: str, location: str) -> Iterable[Dict[str, Any]]:
         try:
             return await adapter.fetch(query=query, location=location)
         except Exception:  # pragma: no cover - adapter failure should not crash API
@@ -88,9 +86,7 @@ async def search_jobs(
     return jobs
 
 
-@router.post(
-    "/run", response_model=JobAutomationResponse, status_code=status.HTTP_202_ACCEPTED
-)
+@router.post("/run", response_model=JobAutomationResponse, status_code=status.HTTP_202_ACCEPTED)
 async def run_automation_job(
     payload: JobAutomationRequest,
     current_user: User = Depends(get_current_user),
